@@ -1,0 +1,35 @@
+{
+  "manifest_version": 2,
+
+  "name": "AltClicky",
+  "description": "This extension allows drilling",
+  "version": "1.0",
+
+  "permissions": [
+    "tabs", "bookmarks", "history"
+  ],
+  "background": { "scripts": ["background.js", "jquery.min.js", "jqGetSelector.js"] },
+
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["jquery.min.js", "codeblocks.js"],
+      "css": ["clipboard.css"],
+      "run_at": "document_start"
+    }
+  ],
+  
+  "commands": {
+    "_execute_browser_action": {
+       "suggested_key": {
+         "default": "Ctrl+Shift+1"
+       }
+    },
+    "quick-prev-tab": {
+      "description": "Switch to Older tab"
+    },
+    "quick-next-tab": {
+      "description": "Switch to Newer tab"
+    }
+  }
+}
