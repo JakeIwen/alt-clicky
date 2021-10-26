@@ -1,19 +1,12 @@
 
-$(function() {
+$(function() { 
   initAltClick();
   amzn();
-  ebay();
+  // ebay();
   tndr();
   fcbk();
   initFilter();
-  // $( document ).on('keydown', function(k) {
-  //   console.log(k);
-  //   const {altKey, shiftKey, metaKey, key} = k;
-  //   if (altKey && metaKey && key === 'å') {
-  //     console.log('GOTKEY');
-  //     filterSort();
-  //   }
-  // } );
+
 })
 
 // if (window.location.host.includes('quickbase.com')) qb();
@@ -231,13 +224,41 @@ function sameParent(a,b) {
 
 // mode(['pear', 'apple', 'orange', 'apple']); // apple
 
-function filterSort(options={}) {
-  const {
-    include,
-    exclude
-  } = options;
+class FilterSort {
   
-  const getText = () => {
+  constructor() {
+    this.urlList = [];
+    this.loadedUrls = [];
+    this.options = {};
+    this.initComplete = false;
+    this.matchText = '';
+    this.curPageNum = null;
+  }
+  
+  init() {
+    this.itemEl = this.getItemElement();
+    this.attrSelectors = this.attrSelectors ||
+      this.itemEl.tagName.toLowerCase() + 
+      Array.from(this.itemEl.attributes).map(a => `[${a.name}]`).slice(0,3).join('');
+    this.curPageNum = this.curPageNum || this.parsePageNum();
+    console.log('INITISLIZED FILTERSORT', this);
+  }
+  
+  async run(options) {
+    this.options = options
+    if (!this.initComplete) {
+      if (!this.getText()) return console.log('select some text first');
+      this.init();
+    }
+    if (options.loadMore) {
+      if(!this.urlList.length) this.updatePageURIs($('body'));
+      await this.loadMorePages(this.urlList, this.attrSelectors, $(this.itemEl).parent());
+    }
+    this.applyFilters(this.itemEl, this.attrSelectors)
+    console.log('done', this);
+  }
+  
+  getText = () => {
     if (window.getSelection) {
       return window.getSelection().toString();
     } else if (document.selection && document.selection.type != "Control") {
@@ -247,7 +268,7 @@ function filterSort(options={}) {
     }
   }
   
-  const hasEnoughSiblings = (source, threshold=9) => {
+  hasEnoughSiblings = (source, threshold=9) => {
     const sibs = $(source).siblings()
     const tags = $(sibs).map((_, el) => el.nodeName).toArray()
     const tagSiblings = $(sibs).filter(mode(tags)).toArray();
@@ -257,63 +278,99 @@ function filterSort(options={}) {
     return withCommonParent.length > 9;
   }
 
-  const getItemElement = () => {
+  getItemElement = () => {
     let cur = window.getSelection().anchorNode;
     do {
       cur = $(cur).parent();
       if (cur[0].nodeName === 'BODY') return null;
-    } while (!hasEnoughSiblings(cur));
+    } while (!this.hasEnoughSiblings(cur));
     return cur[0];
   }
   
-  const findPageURIs = () => {
-    
-    const parsePageNum = (uri) => parseInt(uri.match(/(?:page\w*\=)\d{1,2}/gi)[0].split('=')[1]) 
-    // https://smile.amazon.com/s?k=navajo+quilt+micro+fleece&dc&page=3&crid=1XB1HVW79ACC9&qid=1635141424&sprefix=navajo+quilt+micro+fleece%2Caps%2C158&ref=sr_pg_3
-    return $('[href]').map((_,el) => $(el).attr('href'))
-      .toArray()
-      .filter(href => href.match(/page\w*\=\d{1,2}/gi))
-      .sort()
-  }
-  
-  const loadMorePages = async (uris, attrSelectors, $container) => {
-    for (var uri of uris) {
-      try {
-        const res = await fetch(uri);
-        const html = await res.text();
-        const jq = $.parseHtml(html)
-        debugger;
-      } catch(e) {
-        console.log(e);
-      }
+  parsePageNum = (uri=window.location.href) => {
+    try {
+      return parseInt(uri.match(/(?:(page|pg)\w*=)\d{1,2}/gi)[0].split('=')[1]) 
+    } catch(e) {
+      return 1
     }
+  }
+  
+  updatePageURIs = (html) => {
+    const newURIs = $(html).find('[href]').map((_,el) => $(el).attr('href'))
+      .toArray()
+      .filter(href => href.match(/(page|pg)\w*=\d{1,2}/gi))
+      .sort()
 
+    this.urlList = [...new Set([...this.urlList, ...newURIs])];
+    const pMap = this.urlList.reduce((acc,cur) => {
+      const pNum = this.parsePageNum(cur);
+      return (pNum <= this.curPageNum || acc[pNum]) ? acc : {...acc, [pNum]: cur};
+    }, {})
+    
+    this.pMap = pMap;
+    console.log({pMap});
+    return Object.values(pMap);
+  }
+  
+  addPageResults = (uri, attrSelectors, $container) => {
+    return new Promise((resolve) => {
+      $('#loaderElement').load(`${uri} ${attrSelectors}`, null, (...args) => {
+        $($container).append($('#loaderElement').children());
+        this.loadedUrls.push(uri);
+        this.curPageNum = this.parsePageNum(uri);
+        $('#loaderElement').empty()
+        resolve()
+      });
+    })
+  }
+  
+  async loadMorePages(uris, attrSelectors, $container, maxPages=10) {
+    const pendingUrls = uris.filter(u => !this.loadedUrls.includes(u));
+    while(pendingUrls.length < 10) {
+      const lastUrl = pendingUrls[pendingUrls.length-1];
+      const lastPgNum = this.parsePageNum(lastUrl);
+      const nextUrl = lastUrl.replace(new RegExp(`=${lastPgNum}`), `=${lastPgNum + 1}`)
+      pendingUrls.push(nextUrl)
+      console.log({lastUrl, nextUrl})
+    }
+    console.log('total items: before', $(attrSelectors).length);
+    $($container).children().show()
+    $('body').append(`<div id="loaderElement"></div>`);
+    for (let uri of pendingUrls.slice(0, maxPages)) {
+      await this.addPageResults(uri, attrSelectors, $container);
+      console.log('total items: after', $(attrSelectors).length);
+    }
+    $('#loaderElement').remove();
+  }
+  
+  applyFilters = (itemEl, attrSelectors) => {
+    const {exclude, include} = this.options;
+    const searchItems = $(itemEl).parent().children(attrSelectors);
+    this.matchText = this.getText() || this.matchText;
+    console.log('filtering', this.options, this.matchText, searchItems);
+    console.log('before', $(searchItems).filter(":visible").length);
+    if (this.matchText) {
+      exclude && $(searchItems).each((_,el) => el.innerText.includes(this.matchText) && $(el).hide());
+      include && $(searchItems).each((_,el) => {
+        !el.innerText.includes(this.matchText) && $(el).hide()
+      });
+    }
+    console.log('after', $(searchItems).filter(":visible").length);
     
   }
-  
-  const uris = findPageURIs();
-  
-  const itemEl = getItemElement();
-  const attrSelectors = itemEl.tagName.toLowerCase() + Array.from(itemEl.attributes).map(a => `[${a.name}]`).join('');
-  const searchItems = $(itemEl).parent().children(attrSelectors);
-  const matchText = getText();
-  if (matchText) {
-    exclude && $(searchItems).filter((_,el) => !el.innerText.includes(matchText)).remove();
-    include && $(searchItems).filter((_,el) => el.innerText.includes(matchText)).remove();
-  }
-  
-  loadMorePages(uris, attrSelectors, $(itemEl).parent())
+
 }
 
 function initFilter() {
+  
+  const filterSort = new FilterSort();
+  
   $( document ).on('keydown', function(k) {
-    console.log(k);
-    const {altKey, shiftKey, metaKey, key} = k;
+    const {altKey, shiftKey, metaKey, ctrlKey, key} = k;
     if (altKey && metaKey && key.toLowerCase() === "å") {
-      const opts = {
-        [shiftKey ? 'exclude' : 'include']: true
-      }
-      filterSort();
+      const opts = {[shiftKey ? 'exclude' : 'include']: true,}
+      if (ctrlKey) opts.loadMore = true;
+      filterSort.run(opts)
     }
   } );
   

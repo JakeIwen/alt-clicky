@@ -1,0 +1,30 @@
+{   
+    "parser": "@babel/eslint-parser",
+    "env": {
+      "es6": true,
+      "node": true,
+      "browser": true,
+      "jquery": true
+    },
+    "globals": {
+      "moment": true
+    },
+    "parserOptions": { 
+      "ecmaVersion": 2020,
+      "requireConfigFile": false
+    },
+    "extends": ["eslint:recommended"],
+    "rules": {
+      "no-debugger": 0,
+      "no-console": 0,
+      "no-unused-vars": 0,
+      "quotes": [ 0, "single" ],
+      "linebreak-style": [ 2, "unix" ],
+      "semi": [ 0, "always", { "omitLastInOneLineBlock": true } ],
+      "indent": [1, 2, {
+        "FunctionExpression": {"parameters": "first"},
+        "CallExpression": {"arguments": "first"},
+        "SwitchCase": 1
+      }]
+    }
+}

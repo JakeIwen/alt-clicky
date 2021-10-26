@@ -1,0 +1,22 @@
+{
+  "name": "alt-clicky",
+  "version": "1.0.0",
+  "description": "A chrome browser extension to copy preformatted text.",
+  "main": "background.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JakeIwen/alt-clicky.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JakeIwen/alt-clicky/issues"
+  },
+  "homepage": "https://github.com/JakeIwen/alt-clicky#readme",
+  "devDependencies": {
+    "@babel/eslint-parser": "^7.15.8"
+  }
+}
