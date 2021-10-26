@@ -231,31 +231,45 @@ class FilterSort {
     this.loadedUrls = [];
     this.options = {};
     this.initComplete = false;
-    this.matchText = '';
     this.curPageNum = null;
+    this.searchInclude = [];
+    this.searchExclude = [];
+    $('#searchInclude').change((e) => {
+      console.log('e', e);
+      this.searchInclude = JSON.parse(e.target.value);
+      $('#searchIncludeList').text(JSON.stringify(this.searchInclude))
+      this.applyFilters(this.itemEl, this.attrSelectors)
+    })
+    $('#searchExclude').change((e) => {
+      this.searchExclude = JSON.parse(e.target.value);
+      $('#searchExcludeList').text(JSON.stringify(this.searchExclude))
+      this.applyFilters(this.itemEl, this.attrSelectors)
+    })
+    $('#loadMore').click( async () => {
+      if (!this.initComplete) {
+        if (!this.getText()) return console.log('select some text first');
+        this.init();
+      }
+      if(!this.urlList.length) this.updatePageURIs($('body'));
+      await this.loadMorePages(this.urlList, this.attrSelectors, $(this.itemEl).parent());
+    })
   }
   
   init() {
     this.itemEl = this.getItemElement();
-    this.attrSelectors = this.attrSelectors ||
-      this.itemEl.tagName.toLowerCase() + 
+    this.attrSelectors = this.itemEl.tagName.toLowerCase() + 
       Array.from(this.itemEl.attributes).map(a => `[${a.name}]`).slice(0,3).join('');
     this.curPageNum = this.curPageNum || this.parsePageNum();
     console.log('INITISLIZED FILTERSORT', this);
+    $('#fSearch').show()
   }
   
-  async run(options) {
-    this.options = options
+  async run() {
     if (!this.initComplete) {
       if (!this.getText()) return console.log('select some text first');
       this.init();
     }
-    if (options.loadMore) {
-      if(!this.urlList.length) this.updatePageURIs($('body'));
-      await this.loadMorePages(this.urlList, this.attrSelectors, $(this.itemEl).parent());
-    }
     this.applyFilters(this.itemEl, this.attrSelectors)
-    console.log('done', this);
   }
   
   getText = () => {
@@ -324,53 +338,61 @@ class FilterSort {
     })
   }
   
-  async loadMorePages(uris, attrSelectors, $container, maxPages=10) {
+  async loadMorePages(uris, attrSelectors, $container, maxPages=5) {
     const pendingUrls = uris.filter(u => !this.loadedUrls.includes(u));
     while(pendingUrls.length < 10) {
       const lastUrl = pendingUrls[pendingUrls.length-1];
       const lastPgNum = this.parsePageNum(lastUrl);
       const nextUrl = lastUrl.replace(new RegExp(`=${lastPgNum}`), `=${lastPgNum + 1}`)
       pendingUrls.push(nextUrl)
-      console.log({lastUrl, nextUrl})
     }
-    console.log('total items: before', $(attrSelectors).length);
-    $($container).children().show()
+    console.log('total items: before', $($container).find(attrSelectors).length);
     $('body').append(`<div id="loaderElement"></div>`);
     for (let uri of pendingUrls.slice(0, maxPages)) {
       await this.addPageResults(uri, attrSelectors, $container);
-      console.log('total items: after', $(attrSelectors).length);
+      console.log('total items: after', $($container).find(attrSelectors).length);
     }
     $('#loaderElement').remove();
   }
   
   applyFilters = (itemEl, attrSelectors) => {
-    const {exclude, include} = this.options;
-    const searchItems = $(itemEl).parent().children(attrSelectors);
-    this.matchText = this.getText() || this.matchText;
-    console.log('filtering', this.options, this.matchText, searchItems);
-    console.log('before', $(searchItems).filter(":visible").length);
-    if (this.matchText) {
-      exclude && $(searchItems).each((_,el) => el.innerText.includes(this.matchText) && $(el).hide());
-      include && $(searchItems).each((_,el) => {
-        !el.innerText.includes(this.matchText) && $(el).hide()
-      });
-    }
-    console.log('after', $(searchItems).filter(":visible").length);
-    
+    $(itemEl).parent().find(`${attrSelectors}, ${attrSelectors} *`).show()
+    const searchItems = $(itemEl).parent().find(attrSelectors);
+    console.log('filtering', this, searchItems);
+    $('#totalResults').text($(searchItems).filter(":visible").length)
+    $(searchItems).each((_,el) => {
+      this.searchInclude.filter(v=>v).length && !this.searchInclude.every(si => el.innerText.toLowerCase().includes(si.toLowerCase())) && $(el).hide()
+      this.searchExclude.filter(v=>v).length && this.searchExclude.some(se => el.innerText.toLowerCase().includes(se.toLowerCase())) && $(el).hide()
+    });
+    $('#remainingResults').text($(searchItems).filter(":visible").length)
   }
 
 }
 
 function initFilter() {
-  
+  const $config = `
+    <div id="fSearch">
+      <label>include:</label> <input id="searchInclude" /> 
+      <div id="searchIncludeList"></div>
+      <label>exclude:</label> <input id="searchExclude" /> 
+      <div id="searchExcludeList"></div>
+      Total Items: <span id="totalResults"></span> 
+      <br/>
+      Remaining Items: <span id="remainingResults"></span>
+      <br/>
+      <button id="loadMore">Load More Results</button>
+    </div>
+  `
+  $('body').append($($config));
+  $('#searchInclude').val('[""]');
+  $('#searchExclude').val('[""]');
+  $('#fSearch').hide()
   const filterSort = new FilterSort();
   
   $( document ).on('keydown', function(k) {
     const {altKey, shiftKey, metaKey, ctrlKey, key} = k;
     if (altKey && metaKey && key.toLowerCase() === "å") {
-      const opts = {[shiftKey ? 'exclude' : 'include']: true,}
-      if (ctrlKey) opts.loadMore = true;
-      filterSort.run(opts)
+      filterSort.run()
     }
   } );
   

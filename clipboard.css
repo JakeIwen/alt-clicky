@@ -3,6 +3,13 @@
   outline: 2px solid #5166bb !important;
 }
 
+#fSearch{
+  position: fixed;
+  padding: 20px;
+  background-color: lightgrey;
+  bottom: 0;
+  right: 0;
+}
 
 /* .onboarding__page,
 .onboarding,
