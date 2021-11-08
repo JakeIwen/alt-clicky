@@ -1,5 +1,6 @@
 
 $(function() { 
+  jq()
   initAltClick();
   amzn();
   // ebay();
@@ -10,6 +11,18 @@ $(function() {
 })
 
 // if (window.location.host.includes('quickbase.com')) qb();
+
+function jq() {
+  var devtools = function() {};
+  devtools.toString = function() {
+    if (!this.opened) {
+      console.log('appending jq');
+      $('head').append(`<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>`)
+    }
+    this.opened = true;
+  }
+  console.log('%c', devtools);
+}
 
 async function amzn() {
   const {host, href} = location
@@ -234,15 +247,19 @@ class FilterSort {
     this.curPageNum = null;
     this.searchInclude = [];
     this.searchExclude = [];
-    $('#searchInclude').change((e) => {
-      console.log('e', e);
+    this.cssExclude = [];
+    $('#searchInclude').on('change submit', (e) => {
       this.searchInclude = JSON.parse(e.target.value);
       $('#searchIncludeList').text(JSON.stringify(this.searchInclude))
       this.applyFilters(this.itemEl, this.attrSelectors)
     })
-    $('#searchExclude').change((e) => {
+    $('#searchExclude').on('change submit', (e) => {
       this.searchExclude = JSON.parse(e.target.value);
       $('#searchExcludeList').text(JSON.stringify(this.searchExclude))
+      this.applyFilters(this.itemEl, this.attrSelectors)
+    })
+    $('#cssExclude').on('change submit', (e) => {
+      this.cssExclude = $('#cssExcludeList').text()
       this.applyFilters(this.itemEl, this.attrSelectors)
     })
     $('#loadMore').click( async () => {
@@ -252,6 +269,7 @@ class FilterSort {
       }
       if(!this.urlList.length) this.updatePageURIs($('body'));
       await this.loadMorePages(this.urlList, this.attrSelectors, $(this.itemEl).parent());
+      this.applyFilters(this.itemEl, this.attrSelectors)
     })
   }
   
@@ -262,6 +280,7 @@ class FilterSort {
     this.curPageNum = this.curPageNum || this.parsePageNum();
     console.log('INITISLIZED FILTERSORT', this);
     $('#fSearch').show()
+    this.initComplete = true;
   }
   
   async run() {
@@ -282,29 +301,37 @@ class FilterSort {
     }
   }
   
-  hasEnoughSiblings = (source, threshold=9) => {
-    const sibs = $(source).siblings()
-    const tags = $(sibs).map((_, el) => el.nodeName).toArray()
-    const tagSiblings = $(sibs).filter(mode(tags)).toArray();
-    const hasParent = mode(tagSiblings, sameParent);
-    const withCommonParent = $(sibs).filter((_, el) => sameParent(el, hasParent))
-    console.log('len', withCommonParent.length);
-    return withCommonParent.length > 9;
+  getNumSiblings = $source => {
+    const tagName = $source[0].tagName;
+    return $source.parent().parent().children().children(tagName).length;
+    // return $source.siblings(tagName).length;
   }
 
   getItemElement = () => {
     let cur = window.getSelection().anchorNode;
+    let elWithMostSibs = null;
+    let mostSibs = 0;
     do {
       cur = $(cur).parent();
-      if (cur[0].nodeName === 'BODY') return null;
-    } while (!this.hasEnoughSiblings(cur));
-    return cur[0];
+      const numSibs = this.getNumSiblings(cur);
+      console.log({numSibs, cur});
+      if (numSibs > mostSibs) {
+        mostSibs = numSibs;
+        elWithMostSibs = cur[0];
+      }
+    } while ($(cur).parent().length);
+    
+    return elWithMostSibs;
   }
   
   parsePageNum = (uri=window.location.href) => {
     try {
-      return parseInt(uri.match(/(?:(page|pg)\w*=)\d{1,2}/gi)[0].split('=')[1]) 
+      const match = uri.match(/(?:(page|pg|p)\w*=)\d{1,2}/i);
+      const pNum = match ? match.split('=')[1] : uri.split('/').find(p => p.match(/\d+/))
+      console.log(uri, pNum || 1);
+      return parseInt(pNum || 1) 
     } catch(e) {
+      console.error('could not parse page number from: ', uri);
       return 1
     }
   }
@@ -312,7 +339,7 @@ class FilterSort {
   updatePageURIs = (html) => {
     const newURIs = $(html).find('[href]').map((_,el) => $(el).attr('href'))
       .toArray()
-      .filter(href => href.match(/(page|pg)\w*=\d{1,2}/gi))
+      .filter(href => this.parsePageNum(href))
       .sort()
 
     this.urlList = [...new Set([...this.urlList, ...newURIs])];
@@ -340,10 +367,10 @@ class FilterSort {
   
   async loadMorePages(uris, attrSelectors, $container, maxPages=5) {
     const pendingUrls = uris.filter(u => !this.loadedUrls.includes(u));
-    while(pendingUrls.length < 10) {
-      const lastUrl = pendingUrls[pendingUrls.length-1];
-      const lastPgNum = this.parsePageNum(lastUrl);
-      const nextUrl = lastUrl.replace(new RegExp(`=${lastPgNum}`), `=${lastPgNum + 1}`)
+    while (pendingUrls.length < 10) {
+      const lastUrl = uris[uris.length-1];
+      const lastPg = this.parsePageNum(lastUrl);
+      const nextUrl = lastUrl.replace(new RegExp(`(=|/)(${lastPg})(&|$)`), ([delim]) => `${delim}${lastPg + 1}`)
       pendingUrls.push(nextUrl)
     }
     console.log('total items: before', $($container).find(attrSelectors).length);
@@ -361,12 +388,16 @@ class FilterSort {
     console.log('filtering', this, searchItems);
     $('#totalResults').text($(searchItems).filter(":visible").length)
     $(searchItems).each((_,el) => {
-      this.searchInclude.filter(v=>v).length && !this.searchInclude.every(si => el.innerText.toLowerCase().includes(si.toLowerCase())) && $(el).hide()
+      this.cssExclude.filter(v=>v).length && $(el).find(this.cssExclude).length && $(el).hide()
       this.searchExclude.filter(v=>v).length && this.searchExclude.some(se => el.innerText.toLowerCase().includes(se.toLowerCase())) && $(el).hide()
+      this.searchInclude.filter(v=>v).length && !this.searchInclude.every(si => {
+        return (typeof si === 'string')
+          ? el.innerText.toLowerCase().includes(si.toLowerCase())
+          : si.some(s => el.innerText.toLowerCase().includes(s.toLowerCase()))
+      }) && $(el).hide()
     });
     $('#remainingResults').text($(searchItems).filter(":visible").length)
   }
-
 }
 
 function initFilter() {
@@ -376,6 +407,8 @@ function initFilter() {
       <div id="searchIncludeList"></div>
       <label>exclude:</label> <input id="searchExclude" /> 
       <div id="searchExcludeList"></div>
+      <label>exclude css:</label> <input id="cssExclude" />  
+      <div id="cssExcludeList"></div>
       Total Items: <span id="totalResults"></span> 
       <br/>
       Remaining Items: <span id="remainingResults"></span>
