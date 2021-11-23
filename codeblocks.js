@@ -259,8 +259,8 @@ class FilterSort {
       this.applyFilters(this.itemEl, this.attrSelectors)
     })
     $('#cssExclude').on('change submit', (e) => {
-      this.cssExclude = $('#cssExcludeList').text()
-      this.applyFilters(this.itemEl, this.attrSelectors)
+      this.cssExclude = $('#cssExcludeList').text();
+      this.applyFilters(this.itemEl, this.attrSelectors);
     })
     $('#loadMore').click( async () => {
       if (!this.initComplete) {
@@ -269,19 +269,26 @@ class FilterSort {
       }
       if(!this.urlList.length) this.updatePageURIs($('body'));
       await this.loadMorePages(this.urlList, this.attrSelectors, $(this.itemEl).parent());
-      this.applyFilters(this.itemEl, this.attrSelectors)
+      this.applyFilters(this.itemEl, this.attrSelectors);
     })
   }
   
   init() {
     this.itemEl = this.getItemElement();
-    this.attrSelectors = this.itemEl.tagName.toLowerCase() + 
-      Array.from(this.itemEl.attributes).map(a => `[${a.name}]`).slice(0,3).join('');
+    const parentAttr = this.getAttrSelectors(this.itemEl.parentElement);
+    const itemAttr = this.getAttrSelectors(this.itemEl);
+    this.attrSelectors = `${parentAttr} > ${itemAttr}, script`;
     this.curPageNum = this.curPageNum || this.parsePageNum();
     console.log('INITISLIZED FILTERSORT', this);
     $('#fSearch').show()
     this.initComplete = true;
   }
+  
+  getAttrSelectors = el => {
+    return el.tagName.toLowerCase() + 
+      Array.from(el.attributes).map(a => `[${a.name}]`).slice(0,3).join('');
+  }
+  
   
   async run() {
     if (!this.initComplete) {
@@ -303,7 +310,7 @@ class FilterSort {
   
   getNumSiblings = $source => {
     const tagName = $source[0].tagName;
-    return $source.parent().parent().children().children(tagName).length;
+    return $source.parent().children(tagName).length;
     // return $source.siblings(tagName).length;
   }
 
@@ -320,13 +327,14 @@ class FilterSort {
         elWithMostSibs = cur[0];
       }
     } while ($(cur).parent().length);
-    
+    debugger;
     return elWithMostSibs;
   }
   
   parsePageNum = (uri=window.location.href) => {
     try {
       const match = uri.match(/(?:(page|pg|p)\w*=)\d{1,2}/i);
+      const slashLen = uri.split('/').length
       const pNum = match ? match.split('=')[1] : uri.split('/').find(p => p.match(/\d+/))
       console.log(uri, pNum || 1);
       return parseInt(pNum || 1) 
@@ -339,6 +347,7 @@ class FilterSort {
   updatePageURIs = (html) => {
     const newURIs = $(html).find('[href]').map((_,el) => $(el).attr('href'))
       .toArray()
+      .filter(href => href.match(/\d/))
       .filter(href => this.parsePageNum(href))
       .sort()
 
@@ -354,6 +363,7 @@ class FilterSort {
   }
   
   addPageResults = (uri, attrSelectors, $container) => {
+    console.log({attrSelectors});
     return new Promise((resolve) => {
       $('#loaderElement').load(`${uri} ${attrSelectors}`, null, (...args) => {
         $($container).append($('#loaderElement').children());
@@ -372,6 +382,7 @@ class FilterSort {
       const lastPg = this.parsePageNum(lastUrl);
       const nextUrl = lastUrl.replace(new RegExp(`(=|/)(${lastPg})(&|$)`), ([delim]) => `${delim}${lastPg + 1}`)
       pendingUrls.push(nextUrl)
+      console.log('added url: ', nextUrl);
     }
     console.log('total items: before', $($container).find(attrSelectors).length);
     $('body').append(`<div id="loaderElement"></div>`);
@@ -383,8 +394,8 @@ class FilterSort {
   }
   
   applyFilters = (itemEl, attrSelectors) => {
-    $(itemEl).parent().find(`${attrSelectors}, ${attrSelectors} *`).show()
-    const searchItems = $(itemEl).parent().find(attrSelectors);
+    $(`${attrSelectors}, ${attrSelectors} *`).show()
+    const searchItems = $(itemEl).parent().parent().find(attrSelectors);
     console.log('filtering', this, searchItems);
     $('#totalResults').text($(searchItems).filter(":visible").length)
     $(searchItems).each((_,el) => {
@@ -403,11 +414,11 @@ class FilterSort {
 function initFilter() {
   const $config = `
     <div id="fSearch">
-      <label>include:</label> <input id="searchInclude" /> 
+      <label>include:</label> <input style="background-color: initial; color: initial;" id="searchInclude" /> 
       <div id="searchIncludeList"></div>
-      <label>exclude:</label> <input id="searchExclude" /> 
+      <label>exclude:</label> <input style="background-color: initial; color: initial;" id="searchExclude" /> 
       <div id="searchExcludeList"></div>
-      <label>exclude css:</label> <input id="cssExclude" />  
+      <label>exclude css:</label> <input style="background-color: initial; color: initial;" id="cssExclude" />  
       <div id="cssExcludeList"></div>
       Total Items: <span id="totalResults"></span> 
       <br/>
