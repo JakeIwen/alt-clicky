@@ -330,7 +330,7 @@ class FilterSort {
     debugger;
     return elWithMostSibs;
   }
-  
+   
   parsePageNum = (uri=window.location.href) => {
     try {
       const match = uri.match(/(?:(page|pg|p)\w*=)\d{1,2}/i);
