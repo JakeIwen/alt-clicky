@@ -34,7 +34,8 @@ async function amzn() {
   }
   // prevent subscription default
   $('#newAccordionRow').find(':contains("One-time purchase:")').last().click();
-
+  // sort revierws by recent 
+  $('#cm-cr-sort-dropdown').children().removeAttr('selected').last().attr('selected', true)
 }
 
 function addedObserver(cbk) {
@@ -268,7 +269,7 @@ class FilterSort {
         this.init();
       }
       if(!this.urlList.length) this.updatePageURIs($('body'));
-      await this.loadMorePages(this.urlList, this.attrSelectors, $(this.itemEl).parent());
+      await this.loadMorePages(this.urlList, this.attrSelectors);
       this.applyFilters(this.itemEl, this.attrSelectors);
     })
   }
@@ -277,16 +278,22 @@ class FilterSort {
     this.itemEl = this.getItemElement();
     const parentAttr = this.getAttrSelectors(this.itemEl.parentElement);
     const itemAttr = this.getAttrSelectors(this.itemEl);
-    this.attrSelectors = `${parentAttr} > ${itemAttr}, script`;
+    this.attrSelectors = `${parentAttr} > ${itemAttr}`;
     this.curPageNum = this.curPageNum || this.parsePageNum();
     console.log('INITISLIZED FILTERSORT', this);
     $('#fSearch').show()
+    this.ipp = $(this.itemEl).parent().parent().find(this.attrSelectors).length;
     this.initComplete = true;
   }
   
   getAttrSelectors = el => {
-    return el.tagName.toLowerCase() + 
+    return el.tagName.toLowerCase() + this.getClassSelector(el) + 
       Array.from(el.attributes).map(a => `[${a.name}]`).slice(0,3).join('');
+  }
+  
+  getClassSelector = (el) => {
+    if (!el.className) return '';
+    return '.' + el.className.split(' ')[0] //.join('.')
   }
   
   
@@ -327,27 +334,28 @@ class FilterSort {
         elWithMostSibs = cur[0];
       }
     } while ($(cur).parent().length);
-    debugger;
     return elWithMostSibs;
   }
    
   parsePageNum = (uri=window.location.href) => {
     try {
-      const match = uri.match(/(?:(page|pg|p)\w*=)\d{1,2}/i);
+      uri = uri.split('#')[0].replace(location.host, '')
+      if (uri.match(/^\d{1,3}$/)) return uri.match(/^\d+$/);
+      const match = uri.match(/(?:(page|pg|p)\w*=)\d{1,3}/i);
       const slashLen = uri.split('/').length
-      const pNum = match ? match.split('=')[1] : uri.split('/').find(p => p.match(/\d+/))
+      const pNum = match ? match.split('=')[1] : uri.match(/\/\d{1,3}$/)[0].replace('/', '')
       console.log(uri, pNum || 1);
-      return parseInt(pNum || 1) 
+      return pNum ? parseInt(pNum) : 0;
     } catch(e) {
       console.error('could not parse page number from: ', uri);
-      return 1
+      return 0
     }
   }
   
   updatePageURIs = (html) => {
     const newURIs = $(html).find('[href]').map((_,el) => $(el).attr('href'))
       .toArray()
-      .filter(href => href.match(/\d/))
+      .filter(href => href.replace(location.host, '').match(/\d/))
       .filter(href => this.parsePageNum(href))
       .sort()
 
@@ -362,20 +370,31 @@ class FilterSort {
     return Object.values(pMap);
   }
   
-  addPageResults = (uri, attrSelectors, $container) => {
+  // pairs = s.match(/\[.*\]/g).map(s => '[' + s.slice(1,-1).split(',').map(z => `"${z.trim()}"`).join(',') + ']')
+  
+  addPageResults = (uri, attrSelectors) => {
     console.log({attrSelectors});
     return new Promise((resolve) => {
-      $('#loaderElement').load(`${uri} ${attrSelectors}`, null, (...args) => {
-        $($container).append($('#loaderElement').children());
+      $.get(uri).then((data) => {
+        const newEls = $(data).find(attrSelectors)
+        newEls.toArray().map(el => {
+          if (el.tagName === 'SCRIPT') {
+            const scr = document.createElement('script');
+            scr.innerHTML = el.innerHTML;
+            this.itemEl.parentElement.appendChild(scr)
+          } else {
+            this.itemEl.parentElement.appendChild(el)
+          }
+        })
+        console.log('len', newEls, uri);
         this.loadedUrls.push(uri);
         this.curPageNum = this.parsePageNum(uri);
-        $('#loaderElement').empty()
         resolve()
-      });
+      })
     })
   }
   
-  async loadMorePages(uris, attrSelectors, $container, maxPages=5) {
+  async loadMorePages(uris, attrSelectors, maxPages=5) {
     const pendingUrls = uris.filter(u => !this.loadedUrls.includes(u));
     while (pendingUrls.length < 10) {
       const lastUrl = uris[uris.length-1];
@@ -384,20 +403,16 @@ class FilterSort {
       pendingUrls.push(nextUrl)
       console.log('added url: ', nextUrl);
     }
-    console.log('total items: before', $($container).find(attrSelectors).length);
     $('body').append(`<div id="loaderElement"></div>`);
     for (let uri of pendingUrls.slice(0, maxPages)) {
-      await this.addPageResults(uri, attrSelectors, $container);
-      console.log('total items: after', $($container).find(attrSelectors).length);
+      await this.addPageResults(uri, attrSelectors);
     }
     $('#loaderElement').remove();
   }
   
   applyFilters = (itemEl, attrSelectors) => {
-    $(`${attrSelectors}, ${attrSelectors} *`).show()
-    const searchItems = $(itemEl).parent().parent().find(attrSelectors);
-    console.log('filtering', this, searchItems);
-    $('#totalResults').text($(searchItems).filter(":visible").length)
+    $(`${attrSelectors}`).show()
+    const searchItems = $(itemEl).parent().parent().find(`${attrSelectors}, script`);
     $(searchItems).each((_,el) => {
       this.cssExclude.filter(v=>v).length && $(el).find(this.cssExclude).length && $(el).hide()
       this.searchExclude.filter(v=>v).length && this.searchExclude.some(se => el.innerText.toLowerCase().includes(se.toLowerCase())) && $(el).hide()
@@ -407,7 +422,12 @@ class FilterSort {
           : si.some(s => el.innerText.toLowerCase().includes(s.toLowerCase()))
       }) && $(el).hide()
     });
-    $('#remainingResults').text($(searchItems).filter(":visible").length)
+    $('#totalResults').text(() => {
+      debugger;
+      const tot = (1 + this.loadedUrls.length) * this.ipp; 
+      const vis = $(itemEl).parent().find(`${attrSelectors}:visible`).length;
+      return `Filtered ${tot - vis} of about ${tot}`
+    })
   }
 }
 
@@ -420,7 +440,7 @@ function initFilter() {
       <div id="searchExcludeList"></div>
       <label>exclude css:</label> <input style="background-color: initial; color: initial;" id="cssExclude" />  
       <div id="cssExcludeList"></div>
-      Total Items: <span id="totalResults"></span> 
+      <span id="totalResults"></span> 
       <br/>
       Remaining Items: <span id="remainingResults"></span>
       <br/>
