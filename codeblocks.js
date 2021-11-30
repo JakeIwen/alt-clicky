@@ -282,7 +282,6 @@ class FilterSort {
     this.curPageNum = this.curPageNum || this.parsePageNum();
     console.log('INITISLIZED FILTERSORT', this);
     $('#fSearch').show()
-    this.ipp = $(this.itemEl).parent().parent().find(this.attrSelectors).length;
     this.initComplete = true;
   }
   
@@ -336,15 +335,13 @@ class FilterSort {
     } while ($(cur).parent().length);
     return elWithMostSibs;
   }
-   
+  
   parsePageNum = (uri=window.location.href) => {
     try {
       uri = uri.split('#')[0].replace(location.host, '')
       if (uri.match(/^\d{1,3}$/)) return uri.match(/^\d+$/);
       const match = uri.match(/(?:(page|pg|p)\w*=)\d{1,3}/i);
-      const slashLen = uri.split('/').length
-      const pNum = match ? match.split('=')[1] : uri.match(/\/\d{1,3}$/)[0].replace('/', '')
-      console.log(uri, pNum || 1);
+      const pNum = match ? match[0].split('=')[1] : uri.match(/\/\d{1,3}$/)[0].replace('/', '')
       return pNum ? parseInt(pNum) : 0;
     } catch(e) {
       console.error('could not parse page number from: ', uri);
@@ -357,7 +354,7 @@ class FilterSort {
       .toArray()
       .filter(href => href.replace(location.host, '').match(/\d/))
       .filter(href => this.parsePageNum(href))
-      .sort()
+      .sort((a,b) => this.parsePageNum(a) > this.parsePageNum(b))
 
     this.urlList = [...new Set([...this.urlList, ...newURIs])];
     const pMap = this.urlList.reduce((acc,cur) => {
@@ -376,7 +373,7 @@ class FilterSort {
     console.log({attrSelectors});
     return new Promise((resolve) => {
       $.get(uri).then((data) => {
-        const newEls = $(data).find(attrSelectors)
+        const newEls = $(data).find(`${attrSelectors},script`)
         newEls.toArray().map(el => {
           if (el.tagName === 'SCRIPT') {
             const scr = document.createElement('script');
@@ -386,7 +383,6 @@ class FilterSort {
             this.itemEl.parentElement.appendChild(el)
           }
         })
-        console.log('len', newEls, uri);
         this.loadedUrls.push(uri);
         this.curPageNum = this.parsePageNum(uri);
         resolve()
@@ -412,7 +408,7 @@ class FilterSort {
   
   applyFilters = (itemEl, attrSelectors) => {
     $(`${attrSelectors}`).show()
-    const searchItems = $(itemEl).parent().parent().find(`${attrSelectors}, script`);
+    const searchItems = $(itemEl).parent().parent().find(`${attrSelectors}`);
     $(searchItems).each((_,el) => {
       this.cssExclude.filter(v=>v).length && $(el).find(this.cssExclude).length && $(el).hide()
       this.searchExclude.filter(v=>v).length && this.searchExclude.some(se => el.innerText.toLowerCase().includes(se.toLowerCase())) && $(el).hide()
@@ -423,9 +419,8 @@ class FilterSort {
       }) && $(el).hide()
     });
     $('#totalResults').text(() => {
-      debugger;
-      const tot = (1 + this.loadedUrls.length) * this.ipp; 
-      const vis = $(itemEl).parent().find(`${attrSelectors}:visible`).length;
+      const tot = $(this.itemEl).parent().parent().find(this.attrSelectors).length;
+      const vis = $(itemEl).parent().parent().find(`${attrSelectors}:visible`).length;
       return `Filtered ${tot - vis} of about ${tot}`
     })
   }
