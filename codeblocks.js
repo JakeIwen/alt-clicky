@@ -342,9 +342,10 @@ class FilterSort {
       if (uri.match(/^\d{1,3}$/)) return uri.match(/^\d+$/);
       const match = uri.match(/(?:(page|pg|p)\w*=)\d{1,3}/i);
       const pNum = match ? match[0].split('=')[1] : uri.match(/\/\d{1,3}$/)[0].replace('/', '')
-      return pNum ? parseInt(pNum) : 0;
+      const n = pNum ? parseInt(pNum) : 0;
+      console.log(`Parsed page number [[${n}]] from ${uri}`);
+      return n;
     } catch(e) {
-      console.error('could not parse page number from: ', uri);
       return 0
     }
   }
