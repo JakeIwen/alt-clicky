@@ -7,8 +7,9 @@ $(function() {
   tndr();
   fcbk();
   initFilter();
-
+  ipt()
 })
+const {host, href} = location
 
 // if (window.location.host.includes('quickbase.com')) qb();
 
@@ -24,12 +25,21 @@ function jq() {
   console.log('%c', devtools);
 }
 
+async function ipt() {
+  if (!host.includes('iptorrents.com')) return;
+  $('.tmS').remove()
+  const keyDown = ({target}) => {
+    const val0 = $(target).val()
+    $(target).val(val0.replace(/ (\d)(\d\d)$/, ' S0$1E$2 '));
+  }
+  $( 'input[type="search"]' ).keydown( keyDown );
+}
+
 async function amzn() {
-  const {host, href} = location
   
-  if(!host.includes('amazon.com')) return;
+  if (!host.includes('amazon.com')) return;
   // always smile.amazon.com
-  if(host == 'amazon.com') {
+  if (host == 'amazon.com') {
     return location.href = href.replace(/https:\/\/www.amazon\.com/, 'https://smile.amazon.com')
   }
   // prevent subscription default
@@ -177,8 +187,8 @@ function initAltClick() {
     }
     if (key !== 'Alt' ) return;
     const hasOtherModKey = ctrlKey || shiftKey || metaKey;
+    console.log({hasOtherModKey});
     active = !hasOtherModKey  ? activate() : deactivate();
-
   }
   
   const handleClick = (shiftKey, target) => {
@@ -263,19 +273,18 @@ class FilterSort {
       this.cssExclude = $('#cssExcludeList').text();
       this.applyFilters(this.itemEl, this.attrSelectors);
     })
-    $('#loadMore').click( async () => {
+    $('#loadMore').click( async ({clientX, clientY}) => {
       if (!this.initComplete) {
-        if (!this.getText()) return console.log('select some text first');
-        this.init();
+        this.init(clientX, clientY);
       }
       if(!this.urlList.length) this.updatePageURIs($('body'));
-      await this.loadMorePages(this.urlList, this.attrSelectors);
+      await this.loadMorePages();
       this.applyFilters(this.itemEl, this.attrSelectors);
     })
   }
   
-  init() {
-    this.itemEl = this.getItemElement();
+  init(x,y) {
+    this.itemEl = this.getItemElement(x,y);
     const parentAttr = this.getAttrSelectors(this.itemEl.parentElement);
     const itemAttr = this.getAttrSelectors(this.itemEl);
     this.attrSelectors = `${parentAttr} > ${itemAttr}`;
@@ -296,32 +305,21 @@ class FilterSort {
   }
   
   
-  async run() {
+  async run(x,y) {
     if (!this.initComplete) {
-      if (!this.getText()) return console.log('select some text first');
-      this.init();
+      this.init(x,y);
     }
     this.applyFilters(this.itemEl, this.attrSelectors)
   }
-  
-  getText = () => {
-    if (window.getSelection) {
-      return window.getSelection().toString();
-    } else if (document.selection && document.selection.type != "Control") {
-      return document.selection.createRange().text;
-    } else {
-      return '';
-    }
-  }
-  
+
   getNumSiblings = $source => {
     const tagName = $source[0].tagName;
     return $source.parent().children(tagName).length;
     // return $source.siblings(tagName).length;
   }
 
-  getItemElement = () => {
-    let cur = window.getSelection().anchorNode;
+  getItemElement = (x,y) => {
+    let cur = document.elementFromPoint(parseInt(x),parseInt(y))
     let elWithMostSibs = null;
     let mostSibs = 0;
     do {
@@ -336,24 +334,36 @@ class FilterSort {
     return elWithMostSibs;
   }
   
+  // function pn() {
+  //   var n;
+  //   var uri = window.location.href.split('#')[0].replace(new RegExp(`.*${location.host}?/`), '');
+  //   if (uri.match(/^\d{1,3}$/)) {n = uri.match(/^\d+$/)}
+  //   else {
+  //     var match = uri.match(/(?:(page|pg|p)\w*=)(\d{1,3})/i);
+  //     var pNum = match ? match[2] : uri.match(/(\W|_)(\d{1,3})$/)[2];
+  //     n = (pNum ? parseInt(pNum) : 0).toString();
+  //   }
+  //   location.href.replace(new RegExp(`(${n})(\W|$)`), (_,nm,d) => (parseInt(nm) + 1) + d);
+  //   // location.href = location.href.replace(new RegExp(`(${n})(\W|$)`), ([_,nm,d]) => (parseInt(nm) + 1) + d);
+  // }
+  // 
   parsePageNum = (uri=window.location.href) => {
     try {
-      uri = uri.split('#')[0].replace(location.host, '')
+      uri = uri.split('#')[0].replace(location.host, '');
       if (uri.match(/^\d{1,3}$/)) return uri.match(/^\d+$/);
-      const match = uri.match(/(?:(page|pg|p)\w*=)\d{1,3}/i);
-      const pNum = match ? match[0].split('=')[1] : uri.match(/\/\d{1,3}$/)[0].replace('/', '')
-      const n = pNum ? parseInt(pNum) : 0;
-      console.log(`Parsed page number [[${n}]] from ${uri}`);
-      return n;
+      var match = uri.match(/(?:(page|pg|p)\w*=)(\d{1,3})/i);
+      var pNum = match ? match[2] : uri.match(/(\W|_)(\d{1,3})$/)[2];
+      return pNum ? parseInt(pNum) : 0;
     } catch(e) {
       return 0
     }
   }
   
   updatePageURIs = (html) => {
+    debugger;
     const newURIs = $(html).find('[href]').map((_,el) => $(el).attr('href'))
       .toArray()
-      .filter(href => href.replace(location.host, '').match(/\d/))
+      .filter(href => href.replace(new RegExp(`.*${location.host}`), '').match(/\d/))
       .filter(href => this.parsePageNum(href))
       .sort((a,b) => this.parsePageNum(a) > this.parsePageNum(b))
 
@@ -370,11 +380,10 @@ class FilterSort {
   
   // pairs = s.match(/\[.*\]/g).map(s => '[' + s.slice(1,-1).split(',').map(z => `"${z.trim()}"`).join(',') + ']')
   
-  addPageResults = (uri, attrSelectors) => {
-    console.log({attrSelectors});
+  addPageResults = (uri) => {
     return new Promise((resolve) => {
       $.get(uri).then((data) => {
-        const newEls = $(data).find(`${attrSelectors},script`)
+        const newEls = $(data).find(`${this.attrSelectors},script`)
         newEls.toArray().map(el => {
           if (el.tagName === 'SCRIPT') {
             const scr = document.createElement('script');
@@ -391,8 +400,8 @@ class FilterSort {
     })
   }
   
-  async loadMorePages(uris, attrSelectors, maxPages=5) {
-    const pendingUrls = uris.filter(u => !this.loadedUrls.includes(u));
+  async loadMorePages(maxPages=5) {
+    const pendingUrls = this.urlList.filter(u => !this.loadedUrls.includes(u));
     while (pendingUrls.length < 10) {
       const lastUrl = uris[uris.length-1];
       const lastPg = this.parsePageNum(lastUrl);
@@ -402,7 +411,7 @@ class FilterSort {
     }
     $('body').append(`<div id="loaderElement"></div>`);
     for (let uri of pendingUrls.slice(0, maxPages)) {
-      await this.addPageResults(uri, attrSelectors);
+      await this.addPageResults(uri);
     }
     $('#loaderElement').remove();
   }
@@ -449,10 +458,12 @@ function initFilter() {
   $('#fSearch').hide()
   const filterSort = new FilterSort();
   
-  $( document ).on('keydown', function(k) {
-    const {altKey, shiftKey, metaKey, ctrlKey, key} = k;
-    if (altKey && metaKey && key.toLowerCase() === "å") {
-      filterSort.run()
+  $( document ).on('click', function(k) {
+    const {altKey, metaKey, ctrlKey, key, clientX, clientY} = k;
+    if (altKey && metaKey) {
+      k.preventDefault()
+      console.log(k);
+      filterSort.run(clientX, clientY)
     }
   } );
   
