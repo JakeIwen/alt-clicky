@@ -6,8 +6,8 @@ $(function() {
   // ebay();
   tndr();
   fcbk();
-  initFilter();
   ipt()
+  initFilter();
 })
 const {host, href} = location
 
@@ -113,14 +113,20 @@ function ebay() {
 
 async function fcbk() {
   if(!location.host.includes('facebook.com')) return;
+  
+  const feedAdSelector = 'a[href*="/ads/about"]'
   const adSelector = 'a[href][aria-labelledby][rel="nofollow noopener"]'
-
   const cbk = (mutation) => { 
     let $tgt = $(mutation.target);
-    let $ads = $tgt[0].tagName === 'DIV' && $tgt.find(adSelector)
-    if($ads && $ads.length) {
-      console.log('removing on', `$tgt.find(${adSelector})`, $tgt);
-      $ads.remove();
+    if ($tgt[0].tagName !== 'DIV') return;
+    let ads = [
+      ...$tgt.find(adSelector).toArray(), 
+      ...$tgt.find(feedAdSelector).toArray().map(e => $(e).closest('[role="feed"] > div'))
+    ]
+    
+    if(ads.length) {
+      console.log('removing on ad', $tgt, ads);
+      $(ads).remove();
     }
   }
   const observer = new MutationObserver( (mutList) => mutList.map(m => cbk(m)) )
@@ -401,13 +407,21 @@ class FilterSort {
   }
   
   async loadMorePages(maxPages=5) {
-    const pendingUrls = this.urlList.filter(u => !this.loadedUrls.includes(u));
+    const loaded = this.loadedUrls
+    const pendingUrls = this.urlList.filter(u => !loaded.includes(u));
     while (pendingUrls.length < 10) {
-      const lastUrl = uris[uris.length-1];
-      const lastPg = this.parsePageNum(lastUrl);
-      const nextUrl = lastUrl.replace(new RegExp(`(=|/)(${lastPg})(&|$)`), ([delim]) => `${delim}${lastPg + 1}`)
-      pendingUrls.push(nextUrl)
-      console.log('added url: ', nextUrl);
+      if (loaded.length) {
+        const lastUrl = loaded[loaded.length-1]
+        const lastPg = this.parsePageNum(lastUrl);
+        const nextUrl = lastUrl.replace(new RegExp(`(=|/)(${lastPg})(&|/|$)`), (_, g1, g2, g3) => `${g1}${lastPg + 1}${g3}`)
+        pendingUrls.push(nextUrl)
+        console.log('added url: ', nextUrl);
+      } else {
+        const lastPg = 2
+        const nextUrl = location.href.replace(new RegExp(`(=|/)(${lastPg})(&|/|$)`), (_, g1, g2, g3) => `${g1}${lastPg + 1}${g3}`)
+        console.log('useed location page 2');
+      }
+
     }
     $('body').append(`<div id="loaderElement"></div>`);
     for (let uri of pendingUrls.slice(0, maxPages)) {
@@ -452,7 +466,7 @@ function initFilter() {
       <button id="loadMore">Load More Results</button>
     </div>
   `
-  $('body').append($($config));
+  $('body').append($config);
   $('#searchInclude').val('[""]');
   $('#searchExclude').val('[""]');
   $('#fSearch').hide()
@@ -468,4 +482,14 @@ function initFilter() {
   } );
   
 }
+
+// $( document ).keydown(function(k) {
+//   console.log(k);
+//   const {altKey, metaKey, ctrlKey, keyCode} = k;
+//   if (altKey && ctrlKey && keyCode === 66) {
+//     k.preventDefault()
+//     console.log(chrome.bookmarks);
+//     debugger;
+//   }
+// } );
 
