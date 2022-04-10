@@ -1,5 +1,8 @@
 
 $(function() { 
+  !function(n){var e={delay:50,duration:5e3};n.fn.sfFlash=function(t){var a=n.extend(e,t),d=this;n(document).on("DOMSubtreeModified",function(){d=n(d.selector),o()});var o=function(){d&&(window.setTimeout(function(){d.show().addClass("fadeInUp animated")},a.delay),window.setTimeout(function(){d.addClass("fadeOutDown animated")},a.duration))};o()}}(jQuery);
+  $('.sf-flash').sfFlash()
+  
   jq()
   initAltClick();
   amzn();
@@ -8,13 +11,28 @@ $(function() {
   fcbk();
   ipt()
   initFilter();
+  gt()
+  
 })
 const {host, href} = location
 
 // if (window.location.host.includes('quickbase.com')) qb();
+function flmsg(msg) {
+  $('body').append(`<div class="sf-flash">${msg}</div>`)
+}
+
+function gt() {
+  if (!host.includes('ultimate-guitar')) return
+  const copyToClip = () => {
+    $('main').children().first().remove()
+    navigator.clipboard.writeText($('code').text())
+    flmsg('CHORDS COPIED!')
+  }
+  arriveObserver(copyToClip, 'code')
+}
 
 function jq() {
-  var devtools = function() {};
+  var devtools = function() {}
   devtools.toString = function() {
     if (!this.opened && $.toString().includes('[native code]')) {
       console.log('appending jq');
@@ -60,6 +78,17 @@ function attrObserver(callback, attributeFilter) {
     }
   })
   observer.observe($('body')[0], { attributes: true, subtree: true, attributeFilter });
+}
+
+function arriveObserver(callback, selector) {
+  const observer = new MutationObserver( () => {
+    const waldo = $(selector);
+    if (waldo.length) {
+      observer.disconnect();
+      return callback(waldo)
+    }
+  })
+  observer.observe($('body')[0], { attributes: true, subtree: true });
 }
 
 async function tndr() {
@@ -279,18 +308,21 @@ class FilterSort {
       this.cssExclude = $('#cssExcludeList').text();
       this.applyFilters(this.itemEl, this.attrSelectors);
     })
-    $('#loadMore').click( async ({clientX, clientY}) => {
-      if (!this.initComplete) {
-        this.init(clientX, clientY);
-      }
+    $('#loadMore').click( async () => {
+      // if (!this.initComplete) {
+      //   this.init();
+      // }
       if(!this.urlList.length) this.updatePageURIs($('body'));
       await this.loadMorePages();
       this.applyFilters(this.itemEl, this.attrSelectors);
     })
   }
   
-  init(x,y) {
-    this.itemEl = this.getItemElement(x,y);
+  init() {
+    const initl = $('.mouseOn')[0];
+    if (!initl) return console.log('night element with alt, then press ctrl & meta too ');
+    
+    this.itemEl = this.getItemElement(initl);
     const parentAttr = this.getAttrSelectors(this.itemEl.parentElement);
     const itemAttr = this.getAttrSelectors(this.itemEl);
     this.attrSelectors = `${parentAttr} > ${itemAttr}`;
@@ -311,31 +343,38 @@ class FilterSort {
   }
   
   
-  async run(x,y) {
+  async run() {
     if (!this.initComplete) {
-      this.init(x,y);
+      this.init();
     }
     this.applyFilters(this.itemEl, this.attrSelectors)
   }
 
   getNumSiblings = $source => {
     const tagName = $source[0].tagName;
-    return $source.parent().children(tagName).length;
+    const classes = Array.from($source[0].classList);
+    const cSelec = classes.length ? `.${classes[0]}` : '';
+    return $source
+      .siblings(`${tagName}${cSelec}`)
+      // .not('[id]')
+      .not('[cel_widget_id]')
+      .length;
     // return $source.siblings(tagName).length;
   }
 
-  getItemElement = (x,y) => {
-    let cur = document.elementFromPoint(parseInt(x),parseInt(y))
+  getItemElement = (initl) => {
+    // let cur = document.elementFromPoint(parseInt(x),parseInt(y))
     let elWithMostSibs = null;
     let mostSibs = 0;
+    let cur = $(initl);
     do {
-      cur = $(cur).parent();
       const numSibs = this.getNumSiblings(cur);
       console.log({numSibs, cur});
       if (numSibs > mostSibs) {
         mostSibs = numSibs;
         elWithMostSibs = cur[0];
       }
+      cur = $(cur).parent();
     } while ($(cur).parent().length);
     return elWithMostSibs;
   }
@@ -451,33 +490,39 @@ class FilterSort {
 }
 
 function initFilter() {
+  $('#fSearch').remove();
   const $config = `
     <div id="fSearch">
-      <label>include:</label> <input style="background-color: initial; color: initial;" id="searchInclude" /> 
-      <div id="searchIncludeList"></div>
-      <label>exclude:</label> <input style="background-color: initial; color: initial;" id="searchExclude" /> 
-      <div id="searchExcludeList"></div>
-      <label>exclude css:</label> <input style="background-color: initial; color: initial;" id="cssExclude" />  
-      <div id="cssExcludeList"></div>
-      <span id="totalResults"></span> 
-      <br/>
-      Remaining Items: <span id="remainingResults"></span>
-      <br/>
-      <button id="loadMore">Load More Results</button>
+      <div>
+        <div id="closefilt">X</div>
+        <label>include:</label> <input style="background-color: initial; color: initial;" id="searchInclude" /> 
+        <div id="searchIncludeList"></div>
+        <label>exclude:</label> <input style="background-color: initial; color: initial;" id="searchExclude" /> 
+        <div id="searchExcludeList"></div>
+        <label>exclude css:</label> <input style="background-color: initial; color: initial;" id="cssExclude" />  
+        <div id="cssExcludeList"></div>
+        <span id="totalResults"></span> 
+        <br/>
+        Remaining Items: <span id="remainingResults"></span>
+        <br/>
+        <button id="loadMore">Load More Results</button>
+      </div>
     </div>
   `
   $('body').append($config);
   $('#searchInclude').val('[""]');
   $('#searchExclude').val('[""]');
   $('#fSearch').hide()
+  $('#closefilt').click(() => initFilter())
   const filterSort = new FilterSort();
   
-  $( document ).on('click', function(k) {
-    const {altKey, metaKey, ctrlKey, key, clientX, clientY} = k;
-    if (altKey && metaKey) {
+  console.log('FILT INITIALIZED');
+  $( document ).keydown(function(k) {
+    const {altKey, metaKey, ctrlKey, key, } = k;
+    if (ctrlKey && altKey && metaKey) {
       k.preventDefault()
-      console.log(k);
-      filterSort.run(clientX, clientY)
+      console.log('keyspressed');
+      filterSort.run()
     }
   } );
   
@@ -492,4 +537,5 @@ function initFilter() {
 //     debugger;
 //   }
 // } );
+
 
