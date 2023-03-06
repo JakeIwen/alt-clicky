@@ -11,7 +11,8 @@ $(function() {
   fcbk();
   ipt()
   initFilter();
-  gt()
+  gt();
+  qbit();
   
 })
 const {host, href} = location
@@ -19,6 +20,11 @@ const {host, href} = location
 // if (window.location.host.includes('quickbase.com')) qb();
 function flmsg(msg) {
   $('body').append(`<div class="sf-flash">${msg}</div>`)
+}
+
+function qbit() {
+  if (location.hostname != "raspberrypi.local") return
+  qbitTitle()
 }
 
 function gt() {
@@ -281,12 +287,23 @@ function sameParent(a,b) {
   return $(a).parent().is($(b).parent())
 }
 
+async function qbitTitle() {
+  do {
+    const downSpd = document.getElementById('DlInfos').innerText;
+    const upSpd = document.getElementById('UpInfos').innerText;
+    document.getElementsByTagName('title')[0].innerText = `qbit [${downSpd.split('(')[0]}]|[${upSpd.split('(')[0]}]`
+    await timeout(300)
+  } while(true)
+}
+
 // mode(['pear', 'apple', 'orange', 'apple']); // apple
 
 class FilterSort {
   
   constructor() {
     this.urlList = [];
+    this.pMap = {}
+    this.pageIndex = 1;
     this.loadedUrls = [];
     this.options = {};
     this.initComplete = false;
@@ -295,12 +312,12 @@ class FilterSort {
     this.searchExclude = [];
     this.cssExclude = [];
     $('#searchInclude').on('change submit', (e) => {
-      this.searchInclude = JSON.parse(e.target.value);
+      this.searchInclude = JSON.parse(this.wrapQuotes(e.target.value));
       $('#searchIncludeList').text(JSON.stringify(this.searchInclude))
       this.applyFilters(this.itemEl, this.attrSelectors)
     })
     $('#searchExclude').on('change submit', (e) => {
-      this.searchExclude = JSON.parse(e.target.value);
+      this.searchExclude = JSON.parse(this.wrapQuotes(e.target.value));
       $('#searchExcludeList').text(JSON.stringify(this.searchExclude))
       this.applyFilters(this.itemEl, this.attrSelectors)
     })
@@ -309,10 +326,7 @@ class FilterSort {
       this.applyFilters(this.itemEl, this.attrSelectors);
     })
     $('#loadMore').click( async () => {
-      // if (!this.initComplete) {
-      //   this.init();
-      // }
-      if(!this.urlList.length) this.updatePageURIs($('body'));
+      if(!this.pMap[1]) this.updatePageURIs();
       await this.loadMorePages();
       this.applyFilters(this.itemEl, this.attrSelectors);
     })
@@ -323,15 +337,18 @@ class FilterSort {
     if (!initl) return console.log('night element with alt, then press ctrl & meta too ');
     
     this.itemEl = this.getItemElement(initl);
+    this.parentEl = $(this.itemEl).parent()
     const parentAttr = this.getAttrSelectors(this.itemEl.parentElement);
     const itemAttr = this.getAttrSelectors(this.itemEl);
     this.attrSelectors = `${parentAttr} > ${itemAttr}`;
     this.curPageNum = this.curPageNum || this.parsePageNum();
-    console.log('INITISLIZED FILTERSORT', this);
     $('#fSearch').show()
+    $('#searchInclude').focus()
     this.initComplete = true;
   }
   
+  wrapQuotes = (txt) => txt.replace(/((\w|-|\.)+)/g, '"$1"')
+
   getAttrSelectors = el => {
     return el.tagName.toLowerCase() + this.getClassSelector(el) + 
       Array.from(el.attributes).map(a => `[${a.name}]`).slice(0,3).join('');
@@ -342,11 +359,8 @@ class FilterSort {
     return '.' + el.className.split(' ')[0] //.join('.')
   }
   
-  
-  async run() {
-    if (!this.initComplete) {
-      this.init();
-    }
+  run() {
+    if (!this.initComplete) this.init();
     this.applyFilters(this.itemEl, this.attrSelectors)
   }
 
@@ -392,52 +406,83 @@ class FilterSort {
   //   // location.href = location.href.replace(new RegExp(`(${n})(\W|$)`), ([_,nm,d]) => (parseInt(nm) + 1) + d);
   // }
   // 
-  parsePageNum = (uri=window.location.href) => {
+  parsePageNum = (uri=location.href) => {
     try {
       uri = uri.split('#')[0].replace(location.host, '');
       if (uri.match(/^\d{1,3}$/)) return uri.match(/^\d+$/);
       var match = uri.match(/(?:(page|pg|p)\w*=)(\d{1,3})/i);
       var pNum = match ? match[2] : uri.match(/(\W|_)(\d{1,3})$/)[2];
+      if (!pNum) console.log(`could not parse pagenum, falling back to 0. for: ${uri}`);
+      
       return pNum ? parseInt(pNum) : 0;
     } catch(e) {
       return 0
     }
   }
   
-  updatePageURIs = (html) => {
-    debugger;
-    const newURIs = $(html).find('[href]').map((_,el) => $(el).attr('href'))
-      .toArray()
+  filterSeq = (items, ...regexes) => {
+    for (var regex of regexes) {
+      if (items.some(u => u.match(regex))) return items.filter(u => u.match(regex));
+    }
+    return items
+  }
+  
+  uniquePages = uris => {
+    return uris.reduce((acc,cur) => {
+      const pgNum = this.parsePageNum(cur);
+      if (!acc.some(url => pgNum === this.parsePageNum(url))) acc.push(cur);
+      return acc;
+    }, [])
+      .sort((a,b) => this.parsePageNum(a) > this.parsePageNum(b));
+  }
+  
+  updatePageURIs = () => {
+    let uris = Array.from(document.getElementsByTagName('a')).map(a => a.href)
       .filter(href => href.replace(new RegExp(`.*${location.host}`), '').match(/\d/))
-      .filter(href => this.parsePageNum(href))
-      .sort((a,b) => this.parsePageNum(a) > this.parsePageNum(b))
-
-    this.urlList = [...new Set([...this.urlList, ...newURIs])];
-    const pMap = this.urlList.reduce((acc,cur) => {
-      const pNum = this.parsePageNum(cur);
-      return (pNum <= this.curPageNum || acc[pNum]) ? acc : {...acc, [pNum]: cur};
-    }, {})
+      .map(u => u.startsWith('/') ? `${location.origin}${u}` : u);
+    uris = this.filterSeq(uris, /page=\d/, /p=\d/, /pg=\d/, /\/\d+$/)
+    uris = this.uniquePages(uris)
     
-    this.pMap = pMap;
-    console.log({pMap});
-    return Object.values(pMap);
+    this.pMap = this.buildPmap(uris[uris.length - 1]);
+  }
+  
+  buildPmap = exampleUrl => {
+    const pMap = {}
+    const exPageNum = this.parsePageNum(exampleUrl)
+    if (!exPageNum) throw new Error('could not parse page num')
+    for (var i = 1; i < 200; i++) {
+      const newURI = exampleUrl.replace(new RegExp(`(=|/)${exPageNum}(&|/|$)`), (_, g1, g2) => `${g1}${i}${g2}`);
+      pMap[i] = newURI
+    }
+    return pMap;
   }
   
   // pairs = s.match(/\[.*\]/g).map(s => '[' + s.slice(1,-1).split(',').map(z => `"${z.trim()}"`).join(',') + ']')
   
   addPageResults = (uri) => {
+    if (this.loadedUrls.includes(uri)) return console.log('already included', uri);
+    
     return new Promise((resolve) => {
       $.get(uri).then((data) => {
-        const newEls = $(data).find(`${this.attrSelectors},script`)
-        newEls.toArray().map(el => {
-          if (el.tagName === 'SCRIPT') {
-            const scr = document.createElement('script');
-            scr.innerHTML = el.innerHTML;
-            this.itemEl.parentElement.appendChild(scr)
-          } else {
-            this.itemEl.parentElement.appendChild(el)
-          }
-        })
+        const newEls = $(data).find(`${this.attrSelectors},script`).toArray();
+        const {scriptEls, regEls} = newEls.reduce((acc,el) => {
+          el.tagName==='SCRIPT' ? acc.scriptEls.push(el) : acc.regEls.push(el);
+          return acc;
+        }, {scriptEls: [], regEls: []})
+        
+        if (!regEls.length) {
+          console.log('no real elements found for ', uri);
+          resolve();
+        }
+        
+        regEls.map(el => this.itemEl.parentElement.appendChild(el));
+        
+        scriptEls.map(el => {
+          const scr = document.createElement('script');
+          scr.innerHTML = el.innerHTML;
+          this.itemEl.parentElement.appendChild(scr)
+        });
+        
         this.loadedUrls.push(uri);
         this.curPageNum = this.parsePageNum(uri);
         resolve()
@@ -445,33 +490,26 @@ class FilterSort {
     })
   }
   
-  async loadMorePages(maxPages=5) {
-    const loaded = this.loadedUrls
-    const pendingUrls = this.urlList.filter(u => !loaded.includes(u));
-    while (pendingUrls.length < 10) {
-      if (loaded.length) {
-        const lastUrl = loaded[loaded.length-1]
-        const lastPg = this.parsePageNum(lastUrl);
-        const nextUrl = lastUrl.replace(new RegExp(`(=|/)(${lastPg})(&|/|$)`), (_, g1, g2, g3) => `${g1}${lastPg + 1}${g3}`)
-        pendingUrls.push(nextUrl)
-        console.log('added url: ', nextUrl);
-      } else {
-        const lastPg = 2
-        const nextUrl = location.href.replace(new RegExp(`(=|/)(${lastPg})(&|/|$)`), (_, g1, g2, g3) => `${g1}${lastPg + 1}${g3}`)
-        console.log('useed location page 2');
-      }
+  async loadMorePages(numPagesToLoad=10) {
 
-    }
     $('body').append(`<div id="loaderElement"></div>`);
-    for (let uri of pendingUrls.slice(0, maxPages)) {
+    const urls = Object.values(this.pMap);
+    for (let uri of urls.slice(this.pageIndex, this.pageIndex + numPagesToLoad)) {
+      console.log('loading ' + uri);
       await this.addPageResults(uri);
     }
+    this.pageIndex += numPagesToLoad
+    
+    $('[data-src]').each(function() {
+      if(!this.src || this.src.includes('blank')) this.src = $(this).attr('data-src')
+    })
     $('#loaderElement').remove();
   }
   
   applyFilters = (itemEl, attrSelectors) => {
     $(`${attrSelectors}`).show()
-    const searchItems = $(itemEl).parent().parent().find(`${attrSelectors}`);
+    // const searchItems = $(itemEl).parent().parent().find(`${attrSelectors}`);
+    const searchItems = $(itemEl).siblings();
     $(searchItems).each((_,el) => {
       this.cssExclude.filter(v=>v).length && $(el).find(this.cssExclude).length && $(el).hide()
       this.searchExclude.filter(v=>v).length && this.searchExclude.some(se => el.innerText.toLowerCase().includes(se.toLowerCase())) && $(el).hide()
@@ -510,8 +548,8 @@ function initFilter() {
     </div>
   `
   $('body').append($config);
-  $('#searchInclude').val('[""]');
-  $('#searchExclude').val('[""]');
+  $('#searchInclude').val('[]');
+  $('#searchExclude').val('[]');
   $('#fSearch').hide()
   $('#closefilt').click(() => initFilter())
   const filterSort = new FilterSort();
@@ -537,5 +575,3 @@ function initFilter() {
 //     debugger;
 //   }
 // } );
-
-
