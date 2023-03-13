@@ -288,12 +288,26 @@ function sameParent(a,b) {
 }
 
 async function qbitTitle() {
-  do {
-    const downSpd = document.getElementById('DlInfos').innerText;
-    const upSpd = document.getElementById('UpInfos').innerText;
-    document.getElementsByTagName('title')[0].innerText = `qbit [${downSpd.split('(')[0]}]|[${upSpd.split('(')[0]}]`
-    await timeout(300)
-  } while(true)
+  // do {
+  const downSpd = document.getElementById('DlInfos');
+  const upSpd = document.getElementById('UpInfos');
+  const title = document.getElementsByTagName('title')[0];
+  setInterval(() => console.log(title.innerText), 1000)
+  const observer = new MutationObserver((t) => {
+    console.log('titlech', t.innerText);
+    if (t.innerText.startsWith('qbit')) return;
+    
+    t.innerText = `qbit [${downSpd.innerText.split('(')[0]}]|[${upSpd.innerText.split('(')[0]}]`;
+    
+  })
+  observer.observe(title, {
+    characterData: true,
+    subtree: true,
+  })
+  title.innerText = `qbit [${downSpd.innerText.split('(')[0]}]|[${upSpd.innerText.split('(')[0]}]`;
+  
+    // await timeout(300)
+  // } while(true)
 }
 
 // mode(['pear', 'apple', 'orange', 'apple']); // apple
