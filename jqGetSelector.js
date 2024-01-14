@@ -1,6 +1,3 @@
-!(function ($, undefined) {
-    /// adapted http://jsfiddle.net/drzaus/Hgjfh/5/
-
     var get_selector = function (element) {
         var pieces = [];
 
@@ -25,14 +22,12 @@
         return pieces.slice(1).join('');
     };
 
-    $.fn.getSelector = function (only_one) {
+    jQuery.fn.getSelector = function (only_one) {
         if (true === only_one) {
             return get_selector(this[0]);
         } else {
-            return $.map(this, function (el) {
+            return jQuery.map(this, function (el) {
                 return get_selector(el);
             });
         }
     };
-
-})(window.jQuery);

@@ -1,6 +1,6 @@
 {
   "name": "alt-clicky",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A chrome browser extension to copy preformatted text.",
   "main": "background.js",
   "scripts": {

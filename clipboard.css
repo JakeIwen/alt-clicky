@@ -1,6 +1,7 @@
 .mouseOn{
   background-color: #bcd5eb !important;
   outline: 2px solid #5166bb !important;
+  background: none !important;
 }
 
 #fSearch{

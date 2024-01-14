@@ -1,18 +1,16 @@
 
 $(function() { 
-  !function(n){var e={delay:50,duration:5e3};n.fn.sfFlash=function(t){var a=n.extend(e,t),d=this;n(document).on("DOMSubtreeModified",function(){d=n(d.selector),o()});var o=function(){d&&(window.setTimeout(function(){d.show().addClass("fadeInUp animated")},a.delay),window.setTimeout(function(){d.addClass("fadeOutDown animated")},a.duration))};o()}}(jQuery);
-  $('.sf-flash').sfFlash()
   
-  jq()
+  // jq()
   initAltClick();
   amzn();
   // ebay();
   tndr();
   fcbk();
   ipt()
-  initFilter();
   gt();
   qbit();
+  initFilter();
   
 })
 const {host, href} = location
@@ -37,28 +35,27 @@ function gt() {
   arriveObserver(copyToClip, 'code')
 }
 
-function jq() {
-  var jqScriptTag = '<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>'
-  var devtools = function() {}
-  devtools.toString = function() {
-    if (!this.opened && $.toString().includes('[native code]')) {
-      console.log('appending jq');
-      $('head').append(jqScriptTag)
-    }
-    this.opened = true;
-  }
-  console.log('%c', devtools);
+window.jq = function() {
+  var jqScriptTag = '<script src="jquery.min.js"></script>'
+  debugger;
+
 }
 
 async function ipt() {
   if (!host.includes('iptorrents.com')) return;
   $('.tmS').remove()
   const keyDown = (kd) => {
-    const {target, keycode} =  kd
+    const {target, keyCode} =  kd
     
-    if (keycode === 32) {
+    if (keyCode === 32) {
       const val0 = $(target).val()
-      $(target).val(val0.replace(/ (\d)(\d\d)$/, ' S0$1E$2 '));
+      if(val0.match(/ (\d\d)(\d\d)$/)) {
+        $(target).val(val0.replace(/ (\d\d)(\d\d)$/, ' S$1E$2 '));
+        console.log('repl4digit');
+      } else if(val0.match(/ (\d)(\d\d)$/)) {
+        $(target).val(val0.replace(/ (\d)(\d\d)$/, ' S0$1E$2 '));
+        console.log('repl3digit');
+      }
     }
     // $(target).val(val0.replace(/ (\d\d)-(\d\d) $/, ' S0$1E$2 '));
   }
@@ -346,7 +343,7 @@ class FilterSort {
       this.applyFilters(this.itemEl, this.attrSelectors);
     })
     $('#loadMore').click( async () => {
-      if(!this.pMap[1]) this.updatePageURIs();
+      this.updatePageURIs();
       await this.loadMorePages();
       this.applyFilters(this.itemEl, this.attrSelectors);
     })
@@ -354,7 +351,7 @@ class FilterSort {
   
   init() {
     const initl = $('.mouseOn')[0];
-    if (!initl) return console.log('night element with alt, then press ctrl & meta too ');
+    if (!initl) return console.log('highlight element with alt, then press ctrl & meta too ');
     
     this.itemEl = this.getItemElement(initl);
     this.parentEl = $(this.itemEl).parent()
@@ -371,12 +368,18 @@ class FilterSort {
 
   getAttrSelectors = el => {
     return el.tagName.toLowerCase() + this.getClassSelector(el) + 
-      Array.from(el.attributes).map(a => `[${a.name}]`).slice(0,3).join('');
+      Array.from(el.attributes)
+        .filter(a => a.name !== 'class')
+        .map(a => `[${a.name}]`)
+        .slice(0,3)
+        .join('');
   }
   
   getClassSelector = (el) => {
-    if (!el.className) return '';
-    return '.' + el.className.split(' ')[0] //.join('.')
+    if (!el.classList) return '';
+    
+    const classes = Array.from(el.classList).filter(c => !['hover', 'mouseOn'].includes(c));
+    return classes.length ? `.${classes.join('.')}` : '';
   }
   
   run() {
@@ -386,18 +389,14 @@ class FilterSort {
 
   getNumSiblings = $source => {
     const tagName = $source[0].tagName;
-    const classes = Array.from($source[0].classList);
-    const cSelec = classes.length ? `.${classes[0]}` : '';
+    const cSelec = this.getClassSelector($source[0])
     return $source
       .siblings(`${tagName}${cSelec}`)
-      // .not('[id]')
       .not('[cel_widget_id]')
       .length;
-    // return $source.siblings(tagName).length;
   }
 
   getItemElement = (initl) => {
-    // let cur = document.elementFromPoint(parseInt(x),parseInt(y))
     let elWithMostSibs = null;
     let mostSibs = 0;
     let cur = $(initl);
@@ -412,31 +411,18 @@ class FilterSort {
     } while ($(cur).parent().length);
     return elWithMostSibs;
   }
-  
-  // function pn() {
-  //   var n;
-  //   var uri = window.location.href.split('#')[0].replace(new RegExp(`.*${location.host}?/`), '');
-  //   if (uri.match(/^\d{1,3}$/)) {n = uri.match(/^\d+$/)}
-  //   else {
-  //     var match = uri.match(/(?:(page|pg|p)\w*=)(\d{1,3})/i);
-  //     var pNum = match ? match[2] : uri.match(/(\W|_)(\d{1,3})$/)[2];
-  //     n = (pNum ? parseInt(pNum) : 0).toString();
-  //   }
-  //   location.href.replace(new RegExp(`(${n})(\W|$)`), (_,nm,d) => (parseInt(nm) + 1) + d);
-  //   // location.href = location.href.replace(new RegExp(`(${n})(\W|$)`), ([_,nm,d]) => (parseInt(nm) + 1) + d);
-  // }
-  // 
+
   parsePageNum = (uri=location.href) => {
     try {
-      uri = uri.split('#')[0].replace(location.host, '');
+      uri = uri.split('#')[0].split(location.host)[1];
       if (uri.match(/^\d{1,3}$/)) return uri.match(/^\d+$/);
-      var match = uri.match(/(?:(page|pg|p)\w*=)(\d{1,3})/i);
+      var match = uri.match(/(?:(start|page|pg|p)\w*=)(\d{1,3})/i);
       var pNum = match ? match[2] : uri.match(/(\W|_)(\d{1,3})$/)[2];
-      if (!pNum) console.log(`could not parse pagenum, falling back to 0. for: ${uri}`);
+      if (!pNum) console.log(`could not parse pagenum, falling back to null. for: ${uri}`);
       
-      return pNum ? parseInt(pNum) : 0;
+      return pNum ? parseInt(pNum) : null;
     } catch(e) {
-      return 0
+      return null
     }
   }
   
@@ -448,11 +434,8 @@ class FilterSort {
   }
   
   uniquePages = uris => {
-    return uris.reduce((acc,cur) => {
-      const pgNum = this.parsePageNum(cur);
-      if (!acc.some(url => pgNum === this.parsePageNum(url))) acc.push(cur);
-      return acc;
-    }, [])
+    return [...new Set(uris)]
+      .filter(v => v)
       .sort((a,b) => this.parsePageNum(a) > this.parsePageNum(b));
   }
   
@@ -460,20 +443,32 @@ class FilterSort {
     let uris = Array.from(document.getElementsByTagName('a')).map(a => a.href)
       .filter(href => href.replace(new RegExp(`.*${location.host}`), '').match(/\d/))
       .map(u => u.startsWith('/') ? `${location.origin}${u}` : u);
-    uris = this.filterSeq(uris, /page=\d/, /p=\d/, /pg=\d/, /\/\d+$/)
+    uris = this.filterSeq(uris, /start=\d+/, /page=\d+/, /p=\d+/, /pg=\d+/, /\/\d+$/)
     uris = this.uniquePages(uris)
-    
-    this.pMap = this.buildPmap(uris[uris.length - 1]);
+    const last = uris[uris.length - 1]
+    const isNum = last.match(/start=\d+/) || 
+                  last.match(/page=\d+/) || 
+                  last.match(/p=\d+/) || 
+                  last.match(/pg=\d+/) || 
+                  last.match(/\/\d+$/);
+    if(isNum) {
+      const begin = this.curPageNum
+    }
+    this.pMap = this.buildPmap(uris);
+    console.log('template uri', uris);
+    console.log('pmap', this.pMap);
   }
   
-  buildPmap = exampleUrl => {
+  buildPmap = urls => {
     const pMap = {}
-    const exPageNum = this.parsePageNum(exampleUrl)
-    if (!exPageNum) throw new Error('could not parse page num')
-    for (var i = 1; i < 200; i++) {
-      const newURI = exampleUrl.replace(new RegExp(`(=|/)${exPageNum}(&|/|$)`), (_, g1, g2) => `${g1}${i}${g2}`);
-      pMap[i] = newURI
-    }
+      console.log('pmap urls', urls);
+    urls.map(url => {
+      const pageNum = this.parsePageNum(url)
+      if (pageNum === null) return console.error('could not parse page num on', url)
+      
+      pMap[pageNum] = url
+    })
+
     return pMap;
   }
   
@@ -485,6 +480,7 @@ class FilterSort {
     return new Promise((resolve) => {
       $.get(uri).then((data) => {
         const newEls = $(data).find(`${this.attrSelectors},script`).toArray();
+        debugger;
         const {scriptEls, regEls} = newEls.reduce((acc,el) => {
           el.tagName==='SCRIPT' ? acc.scriptEls.push(el) : acc.regEls.push(el);
           return acc;
@@ -492,6 +488,7 @@ class FilterSort {
         
         if (!regEls.length) {
           console.log('no real elements found for ', uri);
+          debugger;
           resolve();
         }
         
