@@ -54,11 +54,17 @@ async function ipt() {
   if (!host.includes('iptorrents.com')) return;
   $('.tmS').remove()
   const keyDown = (kd) => {
-    const {target, keycode} =  kd
+    const {target, keyCode} =  kd
     
-    if (keycode === 32) {
+    if (keyCode === 32) {
       const val0 = $(target).val()
-      $(target).val(val0.replace(/ (\d)(\d\d)$/, ' S0$1E$2 '));
+      if(val0.match(/ (\d\d)(\d\d)$/)) {
+        $(target).val(val0.replace(/ (\d\d)(\d\d)$/, ' S$1E$2 '));
+        console.log('repl4digit');
+      } else if(val0.match(/ (\d)(\d\d)$/)) {
+        $(target).val(val0.replace(/ (\d)(\d\d)$/, ' S0$1E$2 '));
+        console.log('repl3digit');
+      }
     }
     // $(target).val(val0.replace(/ (\d\d)-(\d\d) $/, ' S0$1E$2 '));
   }
