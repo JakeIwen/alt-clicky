@@ -23,7 +23,7 @@ function flmsg(msg) {
 }
 
 function qbit() {
-  if (location.hostname != "raspberrypi.local") return
+  if (location.hostname != "vanpi.local") return
   qbitTitle()
 }
 
@@ -294,26 +294,15 @@ function sameParent(a,b) {
 }
 
 async function qbitTitle() {
-  // do {
-  const downSpd = document.getElementById('DlInfos');
-  const upSpd = document.getElementById('UpInfos');
-  const title = document.getElementsByTagName('title')[0];
-  setInterval(() => console.log(title.innerText), 1000)
-  const observer = new MutationObserver((t) => {
-    console.log('titlech', t.innerText);
+  setInterval(() => {
+    const t = document.getElementsByTagName('title')[0];
     if (t.innerText.startsWith('qbit')) return;
     
-    t.innerText = `qbit [${downSpd.innerText.split('(')[0]}]|[${upSpd.innerText.split('(')[0]}]`;
+    const downSpd = document.getElementById('DlInfos').innerText;
+    const upSpd = document.getElementById('UpInfos').innerText;
+    t.innerText = `qbit [${downSpd.split('(')[0]}]|[${upSpd.split('(')[0]}]`;
     
-  })
-  observer.observe(title, {
-    characterData: true,
-    subtree: true,
-  })
-  title.innerText = `qbit [${downSpd.innerText.split('(')[0]}]|[${upSpd.innerText.split('(')[0]}]`;
-  
-    // await timeout(300)
-  // } while(true)
+  }, 250)
 }
 
 // mode(['pear', 'apple', 'orange', 'apple']); // apple
