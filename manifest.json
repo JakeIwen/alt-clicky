@@ -20,11 +20,6 @@
   ],
   
   "commands": {
-    "_execute_browser_action": {
-       "suggested_key": {
-         "default": "Ctrl+Shift+1"
-       }
-    },
     "quick-prev-tab": {
       "description": "Switch to Older tab"
     },

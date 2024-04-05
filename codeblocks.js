@@ -29,12 +29,22 @@ function qbit() {
 
 function gt() {
   if (!host.includes('ultimate-guitar')) return
-  const copyToClip = () => {
-    $('main').children().first().remove()
+  setTimeout(() => {
+    $('body > div > div > div > a').closest('div').remove()
+    $('circle[fill="#ffffff"]').closest('div').click()
     navigator.clipboard.writeText($('code').text())
     flmsg('CHORDS COPIED!')
-  }
-  arriveObserver(copyToClip, 'code')
+  }, 500)
+  setInterval(() => {
+    $('circle[fill="#ffffff"]').closest('div').click()
+    $('body > div > article > section > button').click()
+  }, 1000)
+}
+
+function elementByText(selector, text) {
+  $( selector ).filter( function () {
+    return $( this ).text().toLowerCase().indexOf( text.toLowerCase() ) >= 0;
+  }).first();
 }
 
 function jq() {
