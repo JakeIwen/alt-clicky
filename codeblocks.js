@@ -69,10 +69,10 @@ async function ipt() {
     if (keyCode === 32) {
       const val0 = $(target).val()
       if(val0.match(/ (\d\d)(\d\d)$/)) {
-        $(target).val(val0.replace(/ (\d\d)(\d\d)$/, ' S$1E$2 '));
+        $(target).val(val0.replace(/ (\d\d)(\d\d)$/, ' S$1E$2 1080p'));
         console.log('repl4digit');
       } else if(val0.match(/ (\d)(\d\d)$/)) {
-        $(target).val(val0.replace(/ (\d)(\d\d)$/, ' S0$1E$2 '));
+        $(target).val(val0.replace(/ (\d)(\d\d)$/, ' S0$1E$2 1080p'));
         console.log('repl3digit');
       }
     }
