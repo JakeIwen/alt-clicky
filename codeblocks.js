@@ -250,8 +250,9 @@ function initAltClick() {
     }
     if (key !== 'Alt' ) return;
     const hasOtherModKey = ctrlKey || shiftKey || metaKey;
-    console.log({hasOtherModKey});
-    active = !hasOtherModKey  ? activate() : deactivate();
+    if (hasOtherModKey) active = deactivate();
+    // Held Alt autorepeats keydown; binding again would stack handlers.
+    else if (!active) active = activate();
   }
   
   const handleClick = (shiftKey, target) => {
@@ -271,21 +272,27 @@ function initAltClick() {
   
   const deactivate = () => {
     $('*').removeClass('mouseOn');  
-    $('body').unbind();
+    $('body').off('.altClicky');
     return false;
   }
 
+  // The Alt keyup only reaches the page while it has keyboard focus. If focus
+  // left (app/window switch, iframe, URL bar) with Alt held, the keyup is lost,
+  // yet mousemove still arrives, so the mouse event's own altKey decides.
   const activate = () => {
     
-    $('body').mousemove( ({target}) => {
+    $('body').on('mousemove.altClicky', ({altKey, target}) => {
+      if (!altKey) { active = deactivate(); return; }
       $('*').removeClass('mouseOn');
       $(target).addClass('mouseOn');
       $(target).attr('type') === 'password' && $(target).attr('type', '');
     });
     
-    $('body').click( ({shiftKey, target, preventDefault}) => {
-      preventDefault();
-      handleClick(shiftKey, target);
+    $('body').on('click.altClicky', (e) => {
+      // Not `return deactivate()`: a jQuery handler returning false cancels the click.
+      if (!e.altKey) { active = deactivate(); return; }
+      e.preventDefault();
+      handleClick(e.shiftKey, e.target);
     });
     
     return true;
@@ -293,6 +300,7 @@ function initAltClick() {
   
   $( document ).keydown( keyDown );
   $( document ).keyup( ({key}) => active = deactivate() );
+  $( window ).blur( () => active = deactivate() );
 }
 
 function timeout(ms) {
