@@ -4,7 +4,9 @@
   "description": "A chrome browser extension to copy preformatted text.",
   "main": "background.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "web-ext build --overwrite-dest --filename alt-clicky.xpi --ignore-files node_modules \"package*.json\" img README.md update_ff_src.sh",
+    "install:ff": "npm run build && open -a \"Firefox Developer Edition\" web-ext-artifacts/alt-clicky.xpi"
   },
   "repository": {
     "type": "git",
