@@ -3,7 +3,7 @@ const { readFile } = require('node:fs/promises');
 const path = require('node:path');
 const { JSDOM, VirtualConsole } = require('jsdom');
 
-async function loadContentScript(t) {
+async function loadContentScript(t, { url = 'http://localhost/', beforeLoad } = {}) {
   const sources = await Promise.all(['jquery.min.js', 'codeblocks.js'].map(file =>
     readFile(path.join(__dirname, '..', file), 'utf8')));
   const errors = [];
@@ -18,7 +18,7 @@ async function loadContentScript(t) {
       <button id="undo">Undo target</button>
     </main>
   </body></html>`, {
-    url: 'http://localhost/',
+    url,
     runScripts: 'outside-only',
     pretendToBeVisual: true,
     virtualConsole,
@@ -29,6 +29,8 @@ async function loadContentScript(t) {
   });
 
   const { window } = dom;
+  // Lets a test set up page markup the site's own scripts would have rendered.
+  if (beforeLoad) beforeLoad(window);
   // Evaluate both scripts before yielding, as with document_start injection.
   for (const source of sources) window.eval(source);
   // Register after the script's ready callback, then allow ready errors to surface.

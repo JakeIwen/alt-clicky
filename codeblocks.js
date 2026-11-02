@@ -13,6 +13,7 @@ $(function() {
   initFilter();
   gt();
   qbit();
+  rddt();
   
 })
 const {host, href} = location
@@ -39,6 +40,19 @@ function gt() {
     $('circle[fill="#ffffff"]').closest('div').click()
     $('body > div > article > section > button').click()
   }, 1000)
+}
+
+function rddt() {
+  if (!host.includes('reddit.com')) return
+  // Logged-out Reddit blurs each NSFW post behind a "View NSFW content" button
+  // in the container's shadow root. A sweep, not a MutationObserver: posts
+  // stream in on scroll and Lit renders the button after insertion, which a
+  // light-DOM observer never sees.
+  const reveal = () => $('shreddit-blurred-container[blurred][reason="nsfw"]').each(function () {
+    this.shadowRoot?.querySelector('button')?.click()
+  })
+  reveal()
+  setInterval(reveal, 250)
 }
 
 function elementByText(selector, text) {

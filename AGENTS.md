@@ -12,6 +12,7 @@ Firefox/Chrome Manifest V3 browser extension (Chrome no longer loads V2). The `c
 - `package.json`, `package-lock.json`: npm dependencies and test/build/install commands.
 - `test/load-content-script.js`: fresh jsdom setup, real script loading, and native event dispatch.
 - `test/alt-click.test.js`: Alt-click DOM-event regression cases.
+- `test/reddit-nsfw.test.js`: Reddit NSFW auto-reveal against a stub `shreddit-blurred-container`.
 
 ## Contracts
 | Caller | Path | Owner |
