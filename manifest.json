@@ -1,5 +1,5 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
 
   "name": "AltClicky",
   "description": "This extension allows drilling",
@@ -11,10 +11,13 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "alt-clicky-dev@gmail.com",
-      "strict_min_version": "68.0"
+      "strict_min_version": "121.0"
     }
   },
-  "background": { "scripts": ["background.js"] },
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
 
   "content_scripts": [
     {

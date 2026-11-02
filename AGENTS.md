@@ -1,6 +1,6 @@
 # Alt Clicky
 
-Firefox/Chrome Manifest V2 browser extension. The `codeblocks.js` content script provides per-site tweaks and an Alt-click element remover with Alt-Shift-click undo. Build Firefox's XPI with `npm run build`; build and open it in Firefox Developer Edition with `npm run install:ff`.
+Firefox/Chrome Manifest V3 browser extension (Chrome no longer loads V2). The `codeblocks.js` content script provides per-site tweaks and an Alt-click element remover with Alt-Shift-click undo. Build Firefox's XPI with `npm run build`; build and open it in Firefox Developer Edition with `npm run install:ff`. In Chrome, load the repo folder with Load unpacked at `chrome://extensions`. `background` lists both `service_worker` (Chrome) and `scripts` (Firefox); each browser ignores the other's key.
 
 ## Where things live
 - `manifest.json`: extension metadata, permissions, and content/background script wiring.
