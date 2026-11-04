@@ -40,6 +40,8 @@ test('a pane link inside the frame moves the tab to that URL', async () => {
 
 test('the frame loading the dashboard root is not a navigation away', async () => {
   const { navigate, updates } = loadBackground();
+  // The frame commits about:blank before its src is set; the tab must stay.
+  await navigate({ tabId: 1, frameId: 7, url: 'about:blank' });
   await navigate({ tabId: 1, frameId: 7, url: 'http://vanpi:8788/' });
   await navigate({ tabId: 1, frameId: 7, url: 'http://vanpi:8788/#' });
   assert.deepEqual(updates, []);

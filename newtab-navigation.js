@@ -5,7 +5,9 @@
 const NEW_TAB_URL = browser.runtime.getURL('newtab.html');
 
 function leavesDashboardRoot(url) {
-  // Closing a pane can leave a bare "#" behind; that is still the root.
+  // The frame commits about:blank before newtab.js sets its src, so only web
+  // URLs count. Closing a pane can leave a bare "#" behind; that is still root.
+  if (!/^https?:/.test(url)) return false;
   return url.replace(/#$/, '') !== DASHBOARD_URL;
 }
 
@@ -20,5 +22,5 @@ async function onFrameNavigation(details) {
 
 // Full loads, pushState/replaceState, and hash changes inside the frame.
 for (const event of ['onCommitted', 'onHistoryStateUpdated', 'onReferenceFragmentUpdated']) {
-  browser.webNavigation[event].addListener(onFrameNavigation);
+  browser.webNavigation[event].addListener(onFrameNavigation, { url: [{ schemes: ['http', 'https'] }] });
 }
