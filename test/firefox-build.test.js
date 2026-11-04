@@ -21,13 +21,31 @@ test('Firefox build CSP does not upgrade the http dashboard iframe', () => {
   assert.match(csp, /script-src 'self'/);
 });
 
-test('checked-in manifest leaves Chrome\'s new tab page alone', () => {
-  assert.equal(manifest.chrome_url_overrides, undefined);
+test('Firefox build watches frame navigation from existing background scripts', () => {
+  const built = firefoxManifest(manifest);
+  assert.ok(built.permissions.includes('webNavigation'));
+  assert.equal(built.background.service_worker, undefined, 'Chrome-only key dropped');
+  const { scripts } = built.background;
+  assert.ok(scripts.indexOf('dashboard-url.js') < scripts.indexOf('newtab-navigation.js'),
+    'the shared URL is defined before the script that reads it');
+  for (const script of scripts) assert.ok(fs.existsSync(path.join(ROOT, script)), script);
 });
 
-test('new tab page frames the van dashboard', () => {
-  const html = fs.readFileSync(path.join(ROOT, 'newtab.html'), 'utf8');
-  const { document } = new JSDOM(html).window;
-  assert.equal(document.querySelector('iframe').getAttribute('src'), 'http://vanpi:8788/');
-  assert.equal(document.querySelectorAll('script').length, 0, 'no scripts for the CSP to block');
+test('checked-in manifest leaves Chrome\'s new tab page alone', () => {
+  assert.equal(manifest.chrome_url_overrides, undefined);
+  assert.ok(!manifest.permissions.includes('webNavigation'));
+});
+
+test('new tab page frames the van dashboard', async () => {
+  const dom = await JSDOM.fromFile(path.join(ROOT, 'newtab.html'), {
+    runScripts: 'dangerously',
+    resources: 'usable',
+  });
+  await new Promise(resolve => dom.window.addEventListener('load', resolve));
+  const { document } = dom.window;
+  assert.equal(document.querySelector('iframe').src, 'http://vanpi:8788/');
+  for (const script of document.querySelectorAll('script')) {
+    assert.ok(script.src, 'inline scripts would be blocked by the CSP');
+  }
+  dom.window.close();
 });

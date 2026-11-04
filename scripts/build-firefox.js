@@ -14,8 +14,18 @@ const EXCLUDED = new Set([
 ]);
 
 function firefoxManifest(manifest) {
+  // Firefox ignores Chrome's service_worker key; leaving it out keeps the
+  // Firefox manifest lint-clean.
+  const { service_worker, ...background } = manifest.background;
   return {
     ...manifest,
+    // webNavigation lets newtab-navigation.js see navigations inside the
+    // dashboard frame.
+    permissions: [...manifest.permissions, 'webNavigation'],
+    background: {
+      ...background,
+      scripts: ['dashboard-url.js', 'newtab-navigation.js', ...background.scripts],
+    },
     chrome_url_overrides: { newtab: 'newtab.html' },
     // Firefox's MV3 default adds upgrade-insecure-requests, which would turn
     // the dashboard's http:// iframe into a failing https:// load.

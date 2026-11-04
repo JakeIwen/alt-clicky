@@ -11,7 +11,11 @@
   </head>
   <body>
     <!-- Firefox leaves the address bar empty and focused for an extension's
-         new tab page, unlike a redirect to the dashboard URL. -->
-    <iframe src="http://vanpi:8788/" title="Van Dashboard"></iframe>
+         new tab page, unlike a redirect to the dashboard URL. Navigating
+         inside the frame hands the tab over to the real URL
+         (newtab-navigation.js). -->
+    <iframe title="Van Dashboard"></iframe>
+    <script src="dashboard-url.js"></script>
+    <script src="newtab.js"></script>
   </body>
 </html>
