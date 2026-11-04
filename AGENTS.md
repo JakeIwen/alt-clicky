@@ -15,7 +15,7 @@ Firefox/Chrome Manifest V3 browser extension (Chrome no longer loads V2). The `c
 - `test/load-content-script.js`: fresh jsdom setup, real script loading, and native event dispatch.
 - `test/alt-click.test.js`: Alt-click DOM-event regression cases.
 - `test/firefox-build.test.js`: Firefox build manifest and new tab page.
-- `test/filter-autoscroll.test.js`: filter panel auto-scroll, filtering of newly loaded items, and live counts.
+- `test/filter-panel.test.js`: filter panel query parsing, auto-scroll, filtering of newly loaded items, and live counts.
 - `test/reddit-nsfw.test.js`: Reddit NSFW auto-reveal against a stub `shreddit-blurred-container`.
 
 ## Contracts

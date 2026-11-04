@@ -349,6 +349,50 @@ const AUTO_SCROLL_STEP_MS = 1000;
 // About 20 s with no new items before auto-scroll decides the list has ended.
 const AUTO_SCROLL_STALL_STEPS = 20;
 
+// Reads a filter query like `[[4tb, 4 tb], samsung]` without JSON quoting:
+// commas and brackets separate terms, and everything between them, spaces
+// included, is one term. Top-level items must all match; a bracketed group
+// matches if any of its terms does. The outer brackets are optional, and
+// "double quotes" keep a term's commas, brackets or edge spaces. Unbalanced
+// brackets are tolerated so a half-typed query still filters.
+function parseTermList(text) {
+  const root = [];
+  const stack = [root];
+  let term = '', quoted = false, inQuote = false;
+  const endTerm = () => {
+    const t = quoted ? term : term.trim();
+    if (t) stack[stack.length - 1].push(t.toLowerCase());
+    term = '';
+    quoted = false;
+  };
+  for (const ch of text) {
+    if (inQuote) {
+      if (ch === '"') inQuote = false;
+      else term += ch;
+    } else if (ch === '"') {
+      if (!term.trim()) term = '';
+      inQuote = quoted = true;
+    } else if (ch === ',') {
+      endTerm();
+    } else if (ch === '[') {
+      endTerm();
+      const group = [];
+      stack[stack.length - 1].push(group);
+      stack.push(group);
+    } else if (ch === ']') {
+      endTerm();
+      if (stack.length > 1) stack.pop();
+    } else if (!(quoted && /\s/.test(ch))) {
+      term += ch;
+    }
+  }
+  endTerm();
+  const items = root.length === 1 && Array.isArray(root[0]) ? root[0] : root;
+  return items
+    .map(item => Array.isArray(item) ? item.flat(Infinity) : item)
+    .filter(item => item.length);
+}
+
 class FilterSort {
   
   constructor() {
@@ -363,12 +407,12 @@ class FilterSort {
     this.searchExclude = [];
     this.cssExclude = [];
     $('#searchInclude').on('change submit', (e) => {
-      this.searchInclude = JSON.parse(this.wrapQuotes(e.target.value));
+      this.searchInclude = parseTermList(e.target.value);
       $('#searchIncludeList').text(JSON.stringify(this.searchInclude))
       this.applyFilters(this.itemEl, this.attrSelectors)
     })
     $('#searchExclude').on('change submit', (e) => {
-      this.searchExclude = JSON.parse(this.wrapQuotes(e.target.value));
+      this.searchExclude = parseTermList(e.target.value).flat();
       $('#searchExcludeList').text(JSON.stringify(this.searchExclude))
       this.applyFilters(this.itemEl, this.attrSelectors)
     })
@@ -399,8 +443,6 @@ class FilterSort {
     this.initComplete = true;
   }
   
-  wrapQuotes = (txt) => txt.replace(/((\w|-|\.)+)/g, '"$1"')
-
   getAttrSelectors = el => {
     return el.tagName.toLowerCase() + this.getClassSelector(el) + 
       Array.from(el.attributes).map(a => `[${a.name}]`).slice(0,3).join('');
