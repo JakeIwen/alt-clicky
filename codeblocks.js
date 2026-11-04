@@ -345,6 +345,10 @@ async function qbitTitle() {
 
 // mode(['pear', 'apple', 'orange', 'apple']); // apple
 
+const AUTO_SCROLL_STEP_MS = 1000;
+// About 20 s with no new items before auto-scroll decides the list has ended.
+const AUTO_SCROLL_STALL_STEPS = 20;
+
 class FilterSort {
   
   constructor() {
@@ -372,6 +376,7 @@ class FilterSort {
       this.cssExclude = $('#cssExcludeList').text();
       this.applyFilters(this.itemEl, this.attrSelectors);
     })
+    $('#autoScroll').click(() => this.autoScrolling ? this.stopAutoScroll() : this.startAutoScroll())
     $('#loadMore').click( async () => {
       if(!this.pMap[1]) this.updatePageURIs();
       await this.loadMorePages();
@@ -553,10 +558,50 @@ class FilterSort {
     $('#loaderElement').remove();
   }
   
+  // Page-less lists (Facebook Marketplace) load more when the bottom comes
+  // into view, so keep jumping there and re-filter whatever arrived.
+  startAutoScroll = () => {
+    this.autoScrolling = true;
+    this.autoScrollStalls = 0;
+    this.autoScrollCount = this.itemCount();
+    $('#autoScroll').text('Stop scrolling');
+    this.autoScrollStep();
+  }
+
+  stopAutoScroll = (reason = '') => {
+    this.autoScrolling = false;
+    clearTimeout(this.autoScrollTimer);
+    $('#autoScroll').text(`Auto-scroll${reason}`);
+  }
+
+  autoScrollStep = () => {
+    if (!this.autoScrolling) return;
+    const pane = this.scrollPane();
+    if (pane) pane.scrollTop = pane.scrollHeight;
+    else window.scrollTo(0, document.documentElement.scrollHeight);
+    this.applyFilters(this.itemEl, this.attrSelectors);
+
+    const count = this.itemCount();
+    this.autoScrollStalls = count > this.autoScrollCount ? 0 : this.autoScrollStalls + 1;
+    this.autoScrollCount = count;
+    if (this.autoScrollStalls >= AUTO_SCROLL_STALL_STEPS) return this.stopAutoScroll(' (list ended)');
+    this.autoScrollTimer = setTimeout(this.autoScrollStep, AUTO_SCROLL_STEP_MS);
+  }
+
+  // Some lists scroll inside their own pane rather than the page.
+  scrollPane = () => {
+    for (let el = this.itemEl.parentElement; el && el !== document.body; el = el.parentElement) {
+      if (/auto|scroll/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight) return el;
+    }
+    return null;
+  }
+
+  itemCount = () => $(this.itemEl).parent().parent().find(this.attrSelectors).length
+
   applyFilters = (itemEl, attrSelectors) => {
     $(`${attrSelectors}`).show()
     // const searchItems = $(itemEl).parent().parent().find(`${attrSelectors}`);
-    const searchItems = $(itemEl).siblings();
+    const searchItems = $(itemEl).parent().children();
     $(searchItems).each((_,el) => {
       this.cssExclude.filter(v=>v).length && $(el).find(this.cssExclude).length && $(el).hide()
       this.searchExclude.filter(v=>v).length && this.searchExclude.some(se => el.innerText.toLowerCase().includes(se.toLowerCase())) && $(el).hide()
@@ -566,11 +611,12 @@ class FilterSort {
           : si.some(s => el.innerText.toLowerCase().includes(s.toLowerCase()))
       }) && $(el).hide()
     });
-    $('#totalResults').text(() => {
-      const tot = $(this.itemEl).parent().parent().find(this.attrSelectors).length;
-      const vis = $(itemEl).parent().parent().find(`${attrSelectors}:visible`).length;
-      return `Filtered ${tot - vis} of about ${tot}`
-    })
+    // Count what the filters hid, not :visible, so items scrolled out of a
+    // lazily rendered list still count as remaining.
+    const items = $(itemEl).parent().parent().find(attrSelectors);
+    const shown = items.filter((_, el) => el.style.display !== 'none').length;
+    $('#totalResults').text(`Filtered ${items.length - shown} of about ${items.length}`)
+    $('#remainingResults').text(shown)
   }
 }
 
@@ -591,6 +637,7 @@ function initFilter() {
         Remaining Items: <span id="remainingResults"></span>
         <br/>
         <button id="loadMore">Load More Results</button>
+        <button id="autoScroll">Auto-scroll</button>
       </div>
     </div>
   `
